@@ -10,8 +10,9 @@ from rich.panel import Panel
 from rich.text import Text
 
 from .config import (
-    AWSService,
+    ORM,
     AuthMethod,
+    AWSService,
     CacheBackend,
     Database,
     GitHubWorkflow,
@@ -19,7 +20,6 @@ from .config import (
     LoggingLib,
     MessageBroker,
     MigrationTool,
-    ORM,
     PackageManager,
     ProjectConfig,
     ProjectStructure,
@@ -134,7 +134,7 @@ async def gather_project_basics() -> dict:
     }
 
 
-async def gather_database_config() -> dict:
+async def gather_database_config() -> dict[str, Any]:
     """Gather database configuration."""
     print_section("Database Configuration")
     
@@ -150,7 +150,7 @@ async def gather_database_config() -> dict:
         style=custom_style,
     ).ask_async()
     
-    result = {"database": Database(database)}
+    result: dict[str, Any] = {"database": Database(database)}
     
     if database != "none":
         orm = await questionary.select(
@@ -545,8 +545,9 @@ async def confirm_config(config: ProjectConfig) -> bool:
     
     console.print()
     
-    return await questionary.confirm(
+    confirmed = await questionary.confirm(
         "Proceed with this configuration?",
         default=True,
         style=custom_style,
     ).ask_async()
+    return bool(confirmed)

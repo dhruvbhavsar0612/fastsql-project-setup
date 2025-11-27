@@ -1,6 +1,5 @@
 """Project generator - creates files and directories based on configuration."""
 
-import os
 from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -8,20 +7,15 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .config import (
-    AWSService,
     AuthMethod,
+    AWSService,
     CacheBackend,
     Database,
     GitHubWorkflow,
     Linter,
-    LoggingLib,
-    MessageBroker,
     MigrationTool,
-    ORM,
-    PackageManager,
     ProjectConfig,
     ProjectStructure,
-    TaskQueue,
     TypeChecker,
 )
 
@@ -35,7 +29,7 @@ class ProjectGenerator:
         self.config = config
         self.output_dir = output_dir or Path.cwd() / config.project_name
         self.env = Environment(
-            loader=PackageLoader("setup_fastsql", "templates"),
+            loader=PackageLoader("fastapi_smith", "templates"),
             autoescape=select_autoescape(),
             trim_blocks=True,
             lstrip_blocks=True,

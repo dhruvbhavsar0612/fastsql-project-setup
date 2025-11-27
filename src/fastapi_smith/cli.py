@@ -3,6 +3,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -29,20 +30,24 @@ def version_callback(value: bool) -> None:
 
 @app.command()
 def main(
-    output_dir: Path = typer.Option(
-        None,
-        "--output",
-        "-o",
-        help="Output directory (defaults to project name in current directory)",
-    ),
-    version: bool = typer.Option(
-        False,
-        "--version",
-        "-v",
-        callback=version_callback,
-        is_eager=True,
-        help="Show version and exit",
-    ),
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output directory (defaults to project name in current directory)",
+        ),
+    ] = None,
+    version: Annotated[  # noqa: ARG001
+        bool,
+        typer.Option(
+            "--version",
+            "-v",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = False,
 ) -> None:
     """
     Interactively scaffold a new FastAPI project.
@@ -80,10 +85,7 @@ async def _async_main(output_dir: Path | None) -> None:
         return
 
     # Determine output directory
-    if output_dir:
-        project_dir = output_dir
-    else:
-        project_dir = Path.cwd() / config.project_name
+    project_dir = output_dir or Path.cwd() / config.project_name
 
     # Check if directory exists
     if project_dir.exists() and any(project_dir.iterdir()):

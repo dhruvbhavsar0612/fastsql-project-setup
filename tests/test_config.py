@@ -1,10 +1,9 @@
 """Tests for configuration models."""
 
-import pytest
 
 from fastapi_smith.config import (
-    Database,
     ORM,
+    Database,
     ProjectConfig,
     PythonVersion,
 )
