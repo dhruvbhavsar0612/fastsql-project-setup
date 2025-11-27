@@ -16,7 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
-## [0.1.0] - 2024-12-XX
+## [0.1.1] - 2024-11-27
+
+### Fixed
+- Fix CI workflow: use `uv sync --extra dev` for optional dependencies
+- Fix ruff formatting issues in generator.py, prompts.py, test_config.py
+- Fix test_help to handle ANSI escape codes in CLI output
+- Fix generator to use correct package name (fastapi_smith)
+- Fix mypy type errors in prompts.py
+
+### Added
+- Add uv.lock file for dependency caching
+- Add comprehensive test_generator.py with 7 new tests
+
+## [0.1.0] - 2024-11-27
 
 ### Added
 - Initial release of fastapi-smith
@@ -78,5 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/releases/tag/v0.1.0
