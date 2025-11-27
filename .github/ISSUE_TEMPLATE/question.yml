@@ -1,0 +1,38 @@
+name: Question
+description: Ask a question about setup-fastsql
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? We're here to help!
+        
+        Before asking, please check:
+        - [README](https://github.com/dhruvbhavsar0612/fastsql-project-setup#readme)
+        - [Existing issues](https://github.com/dhruvbhavsar0612/fastsql-project-setup/issues)
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: How do I...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any additional context that might help us answer your question.
+    validations:
+      required: false
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: What solutions have you already attempted?
+    validations:
+      required: false
