@@ -93,8 +93,8 @@ jobs:
     needs: [validate, build]
     runs-on: ubuntu-latest
     environment:
-      name: pypi
-      url: https://pypi.org/project/setup-fastsql/
+      name: release
+      url: https://pypi.org/project/fastapi-smith/
     permissions:
       id-token: write
     steps:
@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/setup-fastsql/
+      url: https://test.pypi.org/project/fastapi-smith/
     permissions:
       id-token: write
     steps:
@@ -156,10 +156,10 @@ jobs:
           echo "" >> RELEASE_NOTES.md
           echo '```bash' >> RELEASE_NOTES.md
           echo "# Using uvx (recommended)" >> RELEASE_NOTES.md
-          echo "uvx setup-fastsql" >> RELEASE_NOTES.md
+          echo "uvx fastapi-smith" >> RELEASE_NOTES.md
           echo "" >> RELEASE_NOTES.md
           echo "# Or install with pip" >> RELEASE_NOTES.md
-          echo "pip install setup-fastsql==${VERSION}" >> RELEASE_NOTES.md
+          echo "pip install fastapi-smith==${VERSION}" >> RELEASE_NOTES.md
           echo '```' >> RELEASE_NOTES.md
           echo "" >> RELEASE_NOTES.md
           echo "## What's Changed" >> RELEASE_NOTES.md

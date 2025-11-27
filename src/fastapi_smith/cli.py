@@ -1,4 +1,4 @@
-"""CLI entry point for setup-fastsql."""
+"""CLI entry point for fastapi-smith."""
 
 import asyncio
 import sys
@@ -12,7 +12,7 @@ from .generator import ProjectGenerator
 from .prompts import confirm_config, gather_all_config
 
 app = typer.Typer(
-    name="setup-fastsql",
+    name="fastapi-smith",
     help="Interactive CLI to scaffold FastAPI projects with database, auth, admin, and more.",
     add_completion=False,
 )
@@ -23,7 +23,7 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
-        console.print(f"setup-fastsql version {__version__}")
+        console.print(f"fastapi-smith version {__version__}")
         raise typer.Exit()
 
 

@@ -1,6 +1,6 @@
-# Contributing to setup-fastsql
+# Contributing to fastapi-smith
 
-First off, thank you for considering contributing to setup-fastsql! It's people like you that make this tool better for everyone.
+First off, thank you for considering contributing to fastapi-smith! It's people like you that make this tool better for everyone.
 
 ## Table of Contents
 
@@ -92,7 +92,7 @@ pre-commit install
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=setup_fastsql
+uv run pytest --cov=fastapi_smith
 
 # Run specific test file
 uv run pytest tests/test_generator.py
@@ -108,18 +108,18 @@ uv run ruff check .
 uv run ruff format .
 
 # Run type checker
-uv run mypy src/setup_fastsql
+uv run mypy src/fastapi_smith
 ```
 
 ### Testing Locally
 
 ```bash
 # Run the CLI locally
-uv run setup-fastsql
+uv run fastapi-smith
 
 # Or install in development mode
 pip install -e .
-setup-fastsql
+fastapi-smith
 ```
 
 ## Pull Request Process

@@ -1,6 +1,6 @@
-# setup-fastsql
+# fastapi-smith
 
-[![PyPI version](https://badge.fury.io/py/setup-fastsql.svg)](https://badge.fury.io/py/setup-fastsql)
+[![PyPI version](https://badge.fury.io/py/fastapi-smith.svg)](https://badge.fury.io/py/fastapi-smith)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/dhruvbhavsar0612/fastsql-project-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/dhruvbhavsar0612/fastsql-project-setup/actions/workflows/ci.yml)
@@ -19,13 +19,13 @@ Interactive CLI to scaffold production-ready FastAPI projects with database, aut
 
 ```bash
 # Using uvx (recommended - no install needed)
-uvx setup-fastsql
+uvx fastapi-smith
 
 # Or install globally with uv
-uv tool install setup-fastsql
+uv tool install fastapi-smith
 
 # Or with pip
-pip install setup-fastsql
+pip install fastapi-smith
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ pip install setup-fastsql
 Simply run:
 
 ```bash
-setup-fastsql
+fastapi-smith
 ```
 
 Follow the interactive prompts to configure your project. A new directory will be created with your complete FastAPI application.
@@ -143,7 +143,7 @@ cd fastsql-project-setup
 uv sync
 
 # Run locally
-uv run setup-fastsql
+uv run fastapi-smith
 
 # Run tests
 uv run pytest

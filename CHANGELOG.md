@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2024-12-XX
 
 ### Added
-- Initial release of setup-fastsql
+- Initial release of fastapi-smith
 - Interactive CLI for scaffolding FastAPI projects
 - Database support:
   - PostgreSQL with psycopg3 driver

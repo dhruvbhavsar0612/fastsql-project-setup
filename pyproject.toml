@@ -1,5 +1,5 @@
 [project]
-name = "setup-fastsql"
+name = "fastapi-smith"
 version = "0.1.0"
 description = "Interactive CLI to scaffold FastAPI projects with database, auth, admin, and more"
 readme = "README.md"
@@ -56,7 +56,7 @@ dev = [
 ]
 
 [project.scripts]
-setup-fastsql = "setup_fastsql.cli:app"
+fastapi-smith = "fastapi_smith.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/dhruvbhavsar0612/fastsql-project-setup"
@@ -70,7 +70,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/setup_fastsql"]
+packages = ["src/fastapi_smith"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -96,7 +96,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["setup_fastsql"]
+known-first-party = ["fastapi_smith"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -116,7 +116,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["src/setup_fastsql"]
+source = ["src/fastapi_smith"]
 branch = true
 
 [tool.coverage.report]

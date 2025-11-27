@@ -2,7 +2,7 @@
 
 import pytest
 
-from setup_fastsql.config import (
+from fastapi_smith.config import (
     Database,
     ORM,
     ProjectConfig,

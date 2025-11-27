@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from setup_fastsql.cli import app
+from fastapi_smith.cli import app
 
 runner = CliRunner()
 
