@@ -1,0 +1,128 @@
+"""FastAPI Application Entry Point."""
+
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from fastapi import FastAPI
+{% if config.cors_enabled %}
+from fastapi.middleware.cors import CORSMiddleware
+{% endif %}
+
+from .config import settings
+{% if config.database != config.database.NONE %}
+from .database import init_db, close_db
+{% endif %}
+{% if config.logging_lib == config.logging_lib.LOGURU %}
+from .core.logging import setup_logging
+{% elif config.logging_lib == config.logging_lib.STRUCTLOG %}
+from .core.logging import setup_logging
+{% endif %}
+{% if config.rate_limiting %}
+from .core.rate_limit import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+{% endif %}
+{% if config.health_checks %}
+from .core.health import router as health_router
+{% endif %}
+{% if config.include_admin and config.database != config.database.NONE %}
+from .admin.views import create_admin
+{% endif %}
+{% if config.sentry_enabled %}
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+{% endif %}
+{% if config.api_versioning and config.include_examples %}
+{% if config.project_structure == config.project_structure.LAYERED %}
+from .api.v1.routes.auth import router as auth_router
+from .api.v1.routes.users import router as users_router
+{% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+from .domains.users.routes.auth import router as auth_router
+from .domains.users.routes.users import router as users_router
+{% else %}
+from .routes.auth import router as auth_router
+from .routes.users import router as users_router
+{% endif %}
+{% endif %}
+
+
+{% if config.sentry_enabled %}
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=1.0,
+    )
+{% endif %}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan handler."""
+    # Startup
+    {% if config.logging_lib != config.logging_lib.STANDARD %}
+    setup_logging()
+    {% endif %}
+    {% if config.database != config.database.NONE %}
+    await init_db()
+    {% endif %}
+    {% if config.include_admin and config.database != config.database.NONE %}
+    create_admin(app)
+    {% endif %}
+    
+    yield
+    
+    # Shutdown
+    {% if config.database != config.database.NONE %}
+    await close_db()
+    {% endif %}
+
+
+app = FastAPI(
+    title=settings.app_name,
+    description="{{ config.project_description }}",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
+)
+
+{% if config.cors_enabled %}
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+{% endif %}
+
+{% if config.rate_limiting %}
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+{% endif %}
+
+{% if config.health_checks %}
+# Health check routes
+app.include_router(health_router, tags=["Health"])
+{% endif %}
+
+{% if config.api_versioning and config.include_examples %}
+# API v1 routes
+{% if config.auth_method != config.auth_method.NONE %}
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+{% endif %}
+app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
+{% endif %}
+
+
+@app.get("/")
+async def root() -> dict:
+    """Root endpoint."""
+    return {
+        "app": settings.app_name,
+        "version": "0.1.0",
+        "docs": "/docs" if settings.debug else None,
+    }

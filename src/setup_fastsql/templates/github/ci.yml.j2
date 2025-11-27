@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "{{ config.python_version.value }}"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      {% if config.package_manager == config.package_manager.UV %}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ '{{' }} env.PYTHON_VERSION {{ '}}' }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      {% if config.linter == config.linter.RUFF %}
+      - name: Lint with Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      {% elif config.linter == config.linter.BLACK_ISORT %}
+      - name: Check formatting with Black
+        run: uv run black --check .
+      
+      - name: Check imports with isort
+        run: uv run isort --check .
+      {% endif %}
+
+      {% if config.type_checker == config.type_checker.MYPY_STRICT or config.type_checker == config.type_checker.MYPY_STANDARD %}
+      - name: Type check with mypy
+        run: uv run mypy app
+      {% elif config.type_checker == config.type_checker.PYREFLY %}
+      - name: Type check with Pyrefly
+        run: uv run pyrefly check app
+      {% endif %}
+
+      {% else %}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ '{{' }} env.PYTHON_VERSION {{ '}}' }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      {% if config.linter == config.linter.RUFF %}
+      - name: Lint with Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+      {% elif config.linter == config.linter.BLACK_ISORT %}
+      - name: Check formatting with Black
+        run: black --check .
+      
+      - name: Check imports with isort
+        run: isort --check .
+      {% endif %}
+
+      {% if config.type_checker == config.type_checker.MYPY_STRICT or config.type_checker == config.type_checker.MYPY_STANDARD %}
+      - name: Type check with mypy
+        run: mypy app
+      {% elif config.type_checker == config.type_checker.PYREFLY %}
+      - name: Type check with Pyrefly
+        run: pyrefly check app
+      {% endif %}
+      {% endif %}
+
+  {% if config.testing %}
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    {% if config.database == config.database.POSTGRESQL or config.cache_backend == config.cache_backend.REDIS %}
+    services:
+      {% if config.database == config.database.POSTGRESQL %}
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      {% endif %}
+      {% if config.cache_backend == config.cache_backend.REDIS %}
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      {% endif %}
+    {% endif %}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      {% if config.package_manager == config.package_manager.UV %}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ '{{' }} env.PYTHON_VERSION {{ '}}' }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest --cov=app --cov-report=xml
+        env:
+          {% if config.database == config.database.POSTGRESQL %}
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/test_db
+          {% endif %}
+          {% if config.cache_backend == config.cache_backend.REDIS %}
+          REDIS_URL: redis://localhost:6379/0
+          {% endif %}
+
+      {% else %}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ '{{' }} env.PYTHON_VERSION {{ '}}' }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest --cov=app --cov-report=xml
+        env:
+          {% if config.database == config.database.POSTGRESQL %}
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/test_db
+          {% endif %}
+          {% if config.cache_backend == config.cache_backend.REDIS %}
+          REDIS_URL: redis://localhost:6379/0
+          {% endif %}
+      {% endif %}
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+  {% endif %}
+
+  {% if config.docker %}
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint{% if config.testing %}, test{% endif %}]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: {{ config.project_name }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  {% endif %}

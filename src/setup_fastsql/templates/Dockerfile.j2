@@ -1,0 +1,91 @@
+# syntax=docker/dockerfile:1
+
+# Build stage
+FROM python:{{ config.python_version.value }}-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    {% if config.database == config.database.POSTGRESQL %}
+    libpq-dev \
+    {% elif config.database == config.database.MYSQL %}
+    default-libmysqlclient-dev \
+    {% endif %}
+    && rm -rf /var/lib/apt/lists/*
+
+{% if config.package_manager == config.package_manager.UV %}
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Copy dependency files
+COPY pyproject.toml .
+COPY README.md .
+
+# Install dependencies
+RUN uv sync --frozen --no-dev --no-install-project
+
+{% else %}
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy dependency files
+COPY pyproject.toml .
+COPY README.md .
+
+# Install dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir .
+{% endif %}
+
+
+# Runtime stage
+FROM python:{{ config.python_version.value }}-slim as runtime
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    {% if config.database == config.database.POSTGRESQL %}
+    libpq5 \
+    {% elif config.database == config.database.MYSQL %}
+    default-mysql-client \
+    {% endif %}
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
+
+{% if config.package_manager == config.package_manager.UV %}
+# Copy uv and virtual environment from builder
+COPY --from=builder /bin/uv /bin/uv
+COPY --from=builder /app/.venv /app/.venv
+{% else %}
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+{% endif %}
+
+# Copy application code
+COPY --chown=appuser:appuser . .
+
+# Set environment variables
+{% if config.package_manager == config.package_manager.UV %}
+ENV PATH="/app/.venv/bin:$PATH"
+{% else %}
+ENV PATH="/opt/venv/bin:$PATH"
+{% endif %}
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

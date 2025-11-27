@@ -1,0 +1,75 @@
+"""User schemas."""
+
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field
+
+
+class UserBase(BaseModel):
+    """Base user schema."""
+
+    email: EmailStr
+    full_name: str | None = None
+
+
+class UserCreate(UserBase):
+    """Schema for creating a user."""
+
+    password: str = Field(..., min_length=8, max_length=100)
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating a user."""
+
+    email: EmailStr | None = None
+    full_name: str | None = None
+    password: str | None = Field(None, min_length=8, max_length=100)
+
+
+class UserResponse(UserBase):
+    """Schema for user response."""
+
+    id: int
+    is_active: bool
+    is_superuser: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserInDB(UserResponse):
+    """Schema for user in database (includes hashed password)."""
+
+    hashed_password: str
+
+
+{% if config.auth_method == config.auth_method.JWT %}
+class Token(BaseModel):
+    """JWT token response schema."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class TokenPayload(BaseModel):
+    """JWT token payload schema."""
+
+    sub: str | None = None
+    exp: datetime | None = None
+    type: str | None = None
+
+
+class LoginRequest(BaseModel):
+    """Login request schema."""
+
+    email: EmailStr
+    password: str
+
+
+class RefreshTokenRequest(BaseModel):
+    """Refresh token request schema."""
+
+    refresh_token: str
+{% endif %}

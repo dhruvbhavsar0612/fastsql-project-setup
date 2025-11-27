@@ -1,0 +1,126 @@
+"""AWS SES email service utilities."""
+
+import aioboto3
+from botocore.exceptions import ClientError
+
+from ..config import settings
+
+
+class SESService:
+    """Service for sending emails via AWS SES."""
+
+    def __init__(self):
+        self.session = aioboto3.Session(
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+            region_name=settings.aws_region,
+        )
+        self.sender_email = settings.aws_ses_sender_email
+
+    async def send_email(
+        self,
+        to_email: str | list[str],
+        subject: str,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        reply_to: list[str] | None = None,
+    ) -> dict | None:
+        """
+        Send an email via AWS SES.
+
+        Args:
+            to_email: Recipient email address(es)
+            subject: Email subject
+            body_text: Plain text body
+            body_html: HTML body
+            reply_to: Reply-to addresses
+
+        Returns:
+            SES response dict or None if failed
+        """
+        if isinstance(to_email, str):
+            to_email = [to_email]
+
+        body = {}
+        if body_text:
+            body["Text"] = {"Data": body_text, "Charset": "UTF-8"}
+        if body_html:
+            body["Html"] = {"Data": body_html, "Charset": "UTF-8"}
+
+        if not body:
+            raise ValueError("Either body_text or body_html must be provided")
+
+        message = {
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": body,
+        }
+
+        async with self.session.client("ses") as ses:
+            try:
+                response = await ses.send_email(
+                    Source=self.sender_email,
+                    Destination={"ToAddresses": to_email},
+                    Message=message,
+                    ReplyToAddresses=reply_to or [],
+                )
+                return response
+            except ClientError as e:
+                # Log error in production
+                print(f"SES Error: {e}")
+                return None
+
+    async def send_templated_email(
+        self,
+        to_email: str | list[str],
+        template_name: str,
+        template_data: dict,
+    ) -> dict | None:
+        """
+        Send a templated email via AWS SES.
+
+        Args:
+            to_email: Recipient email address(es)
+            template_name: SES template name
+            template_data: Template variables
+
+        Returns:
+            SES response dict or None if failed
+        """
+        import json
+
+        if isinstance(to_email, str):
+            to_email = [to_email]
+
+        async with self.session.client("ses") as ses:
+            try:
+                response = await ses.send_templated_email(
+                    Source=self.sender_email,
+                    Destination={"ToAddresses": to_email},
+                    Template=template_name,
+                    TemplateData=json.dumps(template_data),
+                )
+                return response
+            except ClientError as e:
+                print(f"SES Error: {e}")
+                return None
+
+    async def verify_email(self, email: str) -> bool:
+        """
+        Request email verification (for SES sandbox).
+
+        Args:
+            email: Email address to verify
+
+        Returns:
+            True if verification request sent
+        """
+        async with self.session.client("ses") as ses:
+            try:
+                await ses.verify_email_identity(EmailAddress=email)
+                return True
+            except ClientError:
+                return False
+
+
+# Default SES service instance
+ses_service = SESService()

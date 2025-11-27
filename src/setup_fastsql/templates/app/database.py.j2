@@ -1,0 +1,85 @@
+"""Database connection and session management."""
+
+{% if config.orm == config.orm.SQLALCHEMY or config.orm == config.orm.SQLMODEL %}
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from .config import settings
+
+# Create async engine
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.debug,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
+
+# Create async session factory
+async_session_maker = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+async def init_db() -> None:
+    """Initialize database connection."""
+    # Import models to register them with SQLAlchemy
+    from .models import base  # noqa: F401
+    
+    # For development: create tables (use migrations in production)
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(base.Base.metadata.create_all)
+
+
+async def close_db() -> None:
+    """Close database connection."""
+    await engine.dispose()
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency to get database session."""
+    async with async_session_maker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+{% elif config.orm == config.orm.TORTOISE %}
+from tortoise import Tortoise
+
+from .config import settings
+
+TORTOISE_ORM = {
+    "connections": {
+        "default": settings.database_url,
+    },
+    "apps": {
+        "models": {
+            "models": ["app.models", "aerich.models"],
+            "default_connection": "default",
+        },
+    },
+}
+
+
+async def init_db() -> None:
+    """Initialize Tortoise ORM."""
+    await Tortoise.init(config=TORTOISE_ORM)
+    # Generate schemas (for development only)
+    # await Tortoise.generate_schemas()
+
+
+async def close_db() -> None:
+    """Close Tortoise ORM connections."""
+    await Tortoise.close_connections()
+{% endif %}

@@ -1,0 +1,37 @@
+[mypy]
+python_version = {{ config.python_version.value }}
+{% if config.type_checker == config.type_checker.MYPY_STRICT %}
+strict = true
+{% else %}
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+{% endif %}
+plugins = pydantic.mypy
+exclude = [
+    "migrations/",
+    "tests/",
+]
+
+[pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[[mypy.overrides]]
+module = [
+    "uvicorn.*",
+    "passlib.*",
+    "jose.*",
+    "slowapi.*",
+    "sqladmin.*",
+    "celery.*",
+    "arq.*",
+    "redis.*",
+    "aiomcache.*",
+    "aio_pika.*",
+    "boto3.*",
+    "aioboto3.*",
+]
+ignore_missing_imports = true

@@ -1,0 +1,222 @@
+# {{ config.project_name }}
+
+{{ config.project_description }}
+
+## Features
+
+- FastAPI with async support
+{% if config.database != config.database.NONE %}
+- {{ config.database.value | title }} database with {{ config.orm.value | title }} ORM
+{% if config.migration_tool != config.migration_tool.NONE %}
+- Database migrations with {{ config.migration_tool.value | title }}
+{% endif %}
+{% endif %}
+{% if config.auth_method != config.auth_method.NONE %}
+- {{ config.auth_method.value | upper }} authentication
+{% endif %}
+{% if config.include_admin %}
+- Admin panel (SQLAdmin)
+{% endif %}
+{% if config.rate_limiting %}
+- Rate limiting
+{% endif %}
+{% if config.cache_backend != config.cache_backend.NONE %}
+- {{ config.cache_backend.value | title }} caching
+{% endif %}
+{% if config.task_queue != config.task_queue.NONE and config.task_queue != config.task_queue.BUILTIN %}
+- Background tasks with {{ config.task_queue.value | title }}
+{% endif %}
+{% if config.logging_lib != config.logging_lib.STANDARD %}
+- {{ config.logging_lib.value | title }} logging
+{% endif %}
+{% if config.testing %}
+- Pytest testing setup
+{% endif %}
+{% if config.docker %}
+- Docker support
+{% endif %}
+
+## Quick Start
+
+### Prerequisites
+
+- Python {{ config.python_version.value }}+
+{% if config.package_manager == config.package_manager.UV %}
+- [uv](https://docs.astral.sh/uv/) (recommended)
+{% endif %}
+{% if config.database == config.database.POSTGRESQL %}
+- PostgreSQL
+{% elif config.database == config.database.MYSQL %}
+- MySQL
+{% endif %}
+{% if config.cache_backend == config.cache_backend.REDIS or config.message_broker == config.message_broker.REDIS %}
+- Redis
+{% endif %}
+{% if config.message_broker == config.message_broker.RABBITMQ %}
+- RabbitMQ
+{% endif %}
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd {{ config.project_name }}
+
+# Copy environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+{% if config.package_manager == config.package_manager.UV %}
+# Install dependencies with uv
+uv sync
+
+# Run the application
+uv run uvicorn app.main:app --reload
+{% else %}
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -e ".[dev]"
+
+# Run the application
+uvicorn app.main:app --reload
+{% endif %}
+```
+
+{% if config.migration_tool != config.migration_tool.NONE %}
+### Database Migrations
+
+```bash
+{% if config.migration_tool == config.migration_tool.ALEMBIC %}
+# Create a new migration
+{% if config.package_manager == config.package_manager.UV %}
+uv run alembic revision --autogenerate -m "Description"
+{% else %}
+alembic revision --autogenerate -m "Description"
+{% endif %}
+
+# Apply migrations
+{% if config.package_manager == config.package_manager.UV %}
+uv run alembic upgrade head
+{% else %}
+alembic upgrade head
+{% endif %}
+{% elif config.migration_tool == config.migration_tool.AERICH %}
+# Initialize aerich (first time only)
+{% if config.package_manager == config.package_manager.UV %}
+uv run aerich init -t app.database.TORTOISE_ORM
+uv run aerich init-db
+{% else %}
+aerich init -t app.database.TORTOISE_ORM
+aerich init-db
+{% endif %}
+
+# Create and apply migrations
+{% if config.package_manager == config.package_manager.UV %}
+uv run aerich migrate
+uv run aerich upgrade
+{% else %}
+aerich migrate
+aerich upgrade
+{% endif %}
+{% endif %}
+```
+{% endif %}
+
+{% if config.docker %}
+### Docker
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Or build the image directly
+docker build -t {{ config.project_name }} .
+docker run -p 8000:8000 {{ config.project_name }}
+```
+{% endif %}
+
+{% if config.testing %}
+### Testing
+
+```bash
+{% if config.package_manager == config.package_manager.UV %}
+uv run pytest
+uv run pytest --cov=app  # With coverage
+{% else %}
+pytest
+pytest --cov=app  # With coverage
+{% endif %}
+```
+{% endif %}
+
+## API Documentation
+
+Once running, visit:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+{% if config.include_admin %}
+- Admin Panel: http://localhost:8000/admin
+{% endif %}
+
+## Project Structure
+
+```
+{{ config.project_name }}/
+{% if config.project_structure == config.project_structure.LAYERED %}
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI application
+│   ├── config.py            # Settings and configuration
+│   ├── database.py          # Database connection
+│   ├── api/
+│   │   └── v1/
+│   │       ├── routes/      # API endpoints
+│   │       └── deps/        # Dependencies
+│   ├── models/              # SQLAlchemy models
+│   ├── schemas/             # Pydantic schemas
+│   ├── services/            # Business logic
+│   ├── repositories/        # Data access layer
+│   └── core/                # Core utilities
+{% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── domains/
+│   │   └── users/
+│   │       ├── routes/
+│   │       ├── models/
+│   │       ├── schemas/
+│   │       └── services/
+│   └── shared/
+│       └── core/
+{% else %}
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── models/
+│   └── routes/
+{% endif %}
+├── tests/
+{% if config.migration_tool != config.migration_tool.NONE %}
+├── migrations/
+{% endif %}
+├── .env.example
+├── pyproject.toml
+{% if config.docker %}
+├── Dockerfile
+├── docker-compose.yml
+{% endif %}
+└── README.md
+```
+
+## License
+
+MIT

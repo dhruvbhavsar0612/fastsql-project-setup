@@ -1,0 +1,55 @@
+# Alembic configuration file
+
+[alembic]
+script_location = migrations
+prepend_sys_path = .
+version_path_separator = os
+
+sqlalchemy.url = driver://user:pass@localhost/dbname
+
+[post_write_hooks]
+{% if config.linter == config.linter.RUFF %}
+hooks = ruff
+ruff.type = exec
+ruff.executable = ruff
+ruff.options = format REVISION_SCRIPT_FILENAME
+{% elif config.linter == config.linter.BLACK_ISORT %}
+hooks = black
+black.type = console_scripts
+black.entrypoint = black
+black.options = -q REVISION_SCRIPT_FILENAME
+{% endif %}
+
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S

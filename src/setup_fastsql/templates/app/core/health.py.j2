@@ -1,0 +1,71 @@
+"""Health check endpoints."""
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+{% if config.database != config.database.NONE %}
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..database import get_db
+{% endif %}
+{% if config.cache_backend == config.cache_backend.REDIS %}
+from ..core.cache import get_redis
+{% endif %}
+
+router = APIRouter()
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+    status: str
+    database: str | None = None
+    cache: str | None = None
+
+
+@router.get("/health", response_model=HealthResponse)
+async def health_check(
+    {% if config.database != config.database.NONE %}
+    db: AsyncSession = Depends(get_db),
+    {% endif %}
+) -> HealthResponse:
+    """
+    Health check endpoint.
+    
+    Returns the status of the application and its dependencies.
+    """
+    response = HealthResponse(status="healthy")
+    
+    {% if config.database != config.database.NONE %}
+    # Check database connection
+    try:
+        await db.execute(text("SELECT 1"))
+        response.database = "healthy"
+    except Exception:
+        response.database = "unhealthy"
+        response.status = "degraded"
+    {% endif %}
+    
+    {% if config.cache_backend == config.cache_backend.REDIS %}
+    # Check Redis connection
+    try:
+        redis = await get_redis()
+        await redis.ping()
+        response.cache = "healthy"
+    except Exception:
+        response.cache = "unhealthy"
+        response.status = "degraded"
+    {% endif %}
+    
+    return response
+
+
+@router.get("/ready")
+async def readiness_check() -> dict:
+    """Readiness probe for Kubernetes."""
+    return {"ready": True}
+
+
+@router.get("/live")
+async def liveness_check() -> dict:
+    """Liveness probe for Kubernetes."""
+    return {"alive": True}

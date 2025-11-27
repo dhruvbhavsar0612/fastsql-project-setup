@@ -1,0 +1,74 @@
+"""User model."""
+
+{% if config.orm == config.orm.SQLALCHEMY %}
+from sqlalchemy import Boolean, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from .base import Base, TimestampMixin
+
+
+class User(Base, TimestampMixin):
+    """User model."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, email={self.email})>"
+
+
+{% elif config.orm == config.orm.SQLMODEL %}
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
+from .base import TimestampMixin
+
+
+class UserBase(SQLModel):
+    """Base user properties."""
+
+    email: str = Field(max_length=255, unique=True, index=True)
+    full_name: Optional[str] = Field(default=None, max_length=255)
+    is_active: bool = Field(default=True)
+    is_superuser: bool = Field(default=False)
+
+
+class User(UserBase, TimestampMixin, table=True):
+    """User model."""
+
+    __tablename__ = "users"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    hashed_password: str = Field(max_length=255)
+
+
+{% elif config.orm == config.orm.TORTOISE %}
+from tortoise import fields
+from tortoise.models import Model
+
+from .base import TimestampMixin
+
+
+class User(Model, TimestampMixin):
+    """User model."""
+
+    id = fields.IntField(pk=True)
+    email = fields.CharField(max_length=255, unique=True, index=True)
+    hashed_password = fields.CharField(max_length=255)
+    full_name = fields.CharField(max_length=255, null=True)
+    is_active = fields.BooleanField(default=True)
+    is_superuser = fields.BooleanField(default=False)
+
+    class Meta:
+        table = "users"
+
+    def __str__(self) -> str:
+        return f"User(id={self.id}, email={self.email})"
+{% endif %}

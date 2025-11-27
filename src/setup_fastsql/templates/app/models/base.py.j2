@@ -1,0 +1,56 @@
+"""Base model configuration."""
+
+{% if config.orm == config.orm.SQLALCHEMY %}
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+
+    pass
+
+
+class TimestampMixin:
+    """Mixin for created_at and updated_at timestamps."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+{% elif config.orm == config.orm.SQLMODEL %}
+from datetime import datetime
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
+
+class TimestampMixin(SQLModel):
+    """Mixin for created_at and updated_at timestamps."""
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+{% elif config.orm == config.orm.TORTOISE %}
+from tortoise import Model, fields
+
+
+class TimestampMixin:
+    """Mixin for created_at and updated_at timestamps."""
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+{% endif %}

@@ -1,0 +1,43 @@
+"""Tests for health check endpoints."""
+
+import pytest
+from httpx import AsyncClient
+
+
+@pytest.mark.asyncio
+async def test_health_check(client: AsyncClient) -> None:
+    """Test health check endpoint returns healthy status."""
+    response = await client.get("/health")
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] in ["healthy", "degraded"]
+
+
+@pytest.mark.asyncio
+async def test_readiness_check(client: AsyncClient) -> None:
+    """Test readiness probe endpoint."""
+    response = await client.get("/ready")
+    
+    assert response.status_code == 200
+    assert response.json() == {"ready": True}
+
+
+@pytest.mark.asyncio
+async def test_liveness_check(client: AsyncClient) -> None:
+    """Test liveness probe endpoint."""
+    response = await client.get("/live")
+    
+    assert response.status_code == 200
+    assert response.json() == {"alive": True}
+
+
+@pytest.mark.asyncio
+async def test_root_endpoint(client: AsyncClient) -> None:
+    """Test root endpoint returns app info."""
+    response = await client.get("/")
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "app" in data
+    assert "version" in data

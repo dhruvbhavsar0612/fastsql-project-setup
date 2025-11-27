@@ -1,0 +1,130 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      {% if config.database == config.database.POSTGRESQL %}
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/{{ config.project_name | replace('-', '_') }}
+      {% elif config.database == config.database.MYSQL %}
+      - DATABASE_URL=mysql+asyncmy://root:root@db:3306/{{ config.project_name | replace('-', '_') }}
+      {% elif config.database == config.database.SQLITE %}
+      - DATABASE_URL=sqlite+aiosqlite:///./{{ config.project_name | replace('-', '_') }}.db
+      {% endif %}
+      {% if config.cache_backend == config.cache_backend.REDIS %}
+      - REDIS_URL=redis://redis:6379/0
+      {% endif %}
+      {% if config.message_broker == config.message_broker.RABBITMQ %}
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      {% endif %}
+    depends_on:
+      {% if config.database == config.database.POSTGRESQL %}
+      db:
+        condition: service_healthy
+      {% elif config.database == config.database.MYSQL %}
+      db:
+        condition: service_healthy
+      {% endif %}
+      {% if config.cache_backend == config.cache_backend.REDIS or config.message_broker == config.message_broker.REDIS %}
+      redis:
+        condition: service_started
+      {% endif %}
+      {% if config.message_broker == config.message_broker.RABBITMQ %}
+      rabbitmq:
+        condition: service_healthy
+      {% endif %}
+    volumes:
+      - .:/app:ro
+    restart: unless-stopped
+
+  {% if config.database == config.database.POSTGRESQL %}
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB={{ config.project_name | replace('-', '_') }}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  {% elif config.database == config.database.MYSQL %}
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE={{ config.project_name | replace('-', '_') }}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  {% endif %}
+
+  {% if config.cache_backend == config.cache_backend.REDIS or config.message_broker == config.message_broker.REDIS %}
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+  {% endif %}
+
+  {% if config.cache_backend == config.cache_backend.MEMCACHED %}
+  memcached:
+    image: memcached:1.6-alpine
+    ports:
+      - "11211:11211"
+    restart: unless-stopped
+  {% endif %}
+
+  {% if config.message_broker == config.message_broker.RABBITMQ %}
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+  {% endif %}
+
+volumes:
+  {% if config.database == config.database.POSTGRESQL %}
+  postgres_data:
+  {% elif config.database == config.database.MYSQL %}
+  mysql_data:
+  {% endif %}
+  {% if config.cache_backend == config.cache_backend.REDIS or config.message_broker == config.message_broker.REDIS %}
+  redis_data:
+  {% endif %}
+  {% if config.message_broker == config.message_broker.RABBITMQ %}
+  rabbitmq_data:
+  {% endif %}

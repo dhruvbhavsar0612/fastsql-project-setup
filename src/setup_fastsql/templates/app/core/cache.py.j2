@@ -1,0 +1,194 @@
+"""Caching utilities."""
+
+{% if config.cache_backend == config.cache_backend.REDIS %}
+from functools import lru_cache
+from typing import Any
+
+import redis.asyncio as redis
+
+from ..config import settings
+
+_redis_client: redis.Redis | None = None
+
+
+async def get_redis() -> redis.Redis:
+    """Get Redis client instance."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis.from_url(
+            settings.redis_url,
+            encoding="utf-8",
+            decode_responses=True,
+        )
+    return _redis_client
+
+
+async def close_redis() -> None:
+    """Close Redis connection."""
+    global _redis_client
+    if _redis_client is not None:
+        await _redis_client.close()
+        _redis_client = None
+
+
+class CacheService:
+    """Redis cache service."""
+
+    def __init__(self, prefix: str = "cache"):
+        self.prefix = prefix
+
+    def _key(self, key: str) -> str:
+        """Generate cache key with prefix."""
+        return f"{self.prefix}:{key}"
+
+    async def get(self, key: str) -> Any | None:
+        """Get value from cache."""
+        client = await get_redis()
+        value = await client.get(self._key(key))
+        return value
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expire: int | None = None,
+    ) -> None:
+        """Set value in cache."""
+        client = await get_redis()
+        await client.set(self._key(key), value, ex=expire)
+
+    async def delete(self, key: str) -> None:
+        """Delete value from cache."""
+        client = await get_redis()
+        await client.delete(self._key(key))
+
+    async def exists(self, key: str) -> bool:
+        """Check if key exists in cache."""
+        client = await get_redis()
+        return await client.exists(self._key(key)) > 0
+
+
+# Default cache instance
+cache = CacheService()
+
+
+{% elif config.cache_backend == config.cache_backend.MEMCACHED %}
+from typing import Any
+
+import aiomcache
+
+from ..config import settings
+
+_memcached_client: aiomcache.Client | None = None
+
+
+async def get_memcached() -> aiomcache.Client:
+    """Get Memcached client instance."""
+    global _memcached_client
+    if _memcached_client is None:
+        _memcached_client = aiomcache.Client(
+            settings.memcached_host,
+            settings.memcached_port,
+        )
+    return _memcached_client
+
+
+async def close_memcached() -> None:
+    """Close Memcached connection."""
+    global _memcached_client
+    if _memcached_client is not None:
+        await _memcached_client.close()
+        _memcached_client = None
+
+
+class CacheService:
+    """Memcached cache service."""
+
+    def __init__(self, prefix: str = "cache"):
+        self.prefix = prefix
+
+    def _key(self, key: str) -> bytes:
+        """Generate cache key with prefix."""
+        return f"{self.prefix}:{key}".encode()
+
+    async def get(self, key: str) -> Any | None:
+        """Get value from cache."""
+        client = await get_memcached()
+        value = await client.get(self._key(key))
+        return value.decode() if value else None
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expire: int = 0,
+    ) -> None:
+        """Set value in cache."""
+        client = await get_memcached()
+        await client.set(self._key(key), str(value).encode(), exptime=expire)
+
+    async def delete(self, key: str) -> None:
+        """Delete value from cache."""
+        client = await get_memcached()
+        await client.delete(self._key(key))
+
+
+# Default cache instance
+cache = CacheService()
+
+
+{% else %}
+from typing import Any
+from datetime import datetime, timedelta
+
+
+class InMemoryCache:
+    """Simple in-memory cache for development."""
+
+    def __init__(self):
+        self._cache: dict[str, tuple[Any, datetime | None]] = {}
+
+    def _key(self, key: str, prefix: str = "cache") -> str:
+        """Generate cache key with prefix."""
+        return f"{prefix}:{key}"
+
+    async def get(self, key: str, prefix: str = "cache") -> Any | None:
+        """Get value from cache."""
+        full_key = self._key(key, prefix)
+        if full_key not in self._cache:
+            return None
+        
+        value, expires_at = self._cache[full_key]
+        if expires_at and datetime.utcnow() > expires_at:
+            del self._cache[full_key]
+            return None
+        
+        return value
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expire: int | None = None,
+        prefix: str = "cache",
+    ) -> None:
+        """Set value in cache."""
+        full_key = self._key(key, prefix)
+        expires_at = None
+        if expire:
+            expires_at = datetime.utcnow() + timedelta(seconds=expire)
+        self._cache[full_key] = (value, expires_at)
+
+    async def delete(self, key: str, prefix: str = "cache") -> None:
+        """Delete value from cache."""
+        full_key = self._key(key, prefix)
+        self._cache.pop(full_key, None)
+
+    async def exists(self, key: str, prefix: str = "cache") -> bool:
+        """Check if key exists in cache."""
+        return await self.get(key, prefix) is not None
+
+
+# Default cache instance
+cache = InMemoryCache()
+{% endif %}

@@ -1,0 +1,101 @@
+"""Application configuration and settings."""
+
+from functools import lru_cache
+from typing import List
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Application
+    app_name: str = "{{ config.project_name }}"
+    app_env: str = "development"
+    debug: bool = True
+    secret_key: str = "change-me-in-production"
+
+    # Server
+    host: str = "0.0.0.0"
+    port: int = 8000
+
+    {% if config.database != config.database.NONE %}
+    # Database
+    {% if config.database == config.database.POSTGRESQL %}
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/{{ config.project_name | replace('-', '_') }}"
+    {% elif config.database == config.database.MYSQL %}
+    database_url: str = "mysql+asyncmy://root:root@localhost:3306/{{ config.project_name | replace('-', '_') }}"
+    {% elif config.database == config.database.SQLITE %}
+    database_url: str = "sqlite+aiosqlite:///./{{ config.project_name | replace('-', '_') }}.db"
+    {% endif %}
+    {% endif %}
+
+    {% if config.auth_method == config.auth_method.JWT %}
+    # JWT
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    {% elif config.auth_method == config.auth_method.OAUTH2 %}
+    # OAuth2
+    oauth2_client_id: str = ""
+    oauth2_client_secret: str = ""
+    {% endif %}
+
+    {% if config.cache_backend == config.cache_backend.REDIS %}
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+    {% elif config.cache_backend == config.cache_backend.MEMCACHED %}
+    # Memcached
+    memcached_host: str = "localhost"
+    memcached_port: int = 11211
+    {% endif %}
+
+    {% if config.message_broker == config.message_broker.RABBITMQ %}
+    # RabbitMQ
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    {% endif %}
+
+    {% if config.sentry_enabled %}
+    # Sentry
+    sentry_dsn: str | None = None
+    {% endif %}
+
+    {% if config.aws_enabled %}
+    # AWS
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
+    {% if 's3' in config.aws_services | map(attribute='value') | list %}
+    aws_s3_bucket: str = ""
+    {% endif %}
+    {% if 'ses' in config.aws_services | map(attribute='value') | list %}
+    aws_ses_sender_email: str = ""
+    {% endif %}
+    {% endif %}
+
+    {% if config.cors_enabled %}
+    # CORS
+    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    {% endif %}
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production."""
+        return self.app_env == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return Settings()
+
+
+settings = get_settings()

@@ -1,0 +1,151 @@
+[project]
+name = "{{ config.project_name }}"
+version = "0.1.0"
+description = "{{ config.project_description }}"
+readme = "README.md"
+requires-python = ">={{ config.python_version.value }}"
+{% if config.author_name or config.author_email %}
+authors = [
+    { name = "{{ config.author_name }}"{% if config.author_email %}, email = "{{ config.author_email }}"{% endif %} }
+]
+{% endif %}
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    {% if config.database != config.database.NONE %}
+    {% if config.orm == config.orm.SQLALCHEMY %}
+    "sqlalchemy[asyncio]>=2.0.30",
+    {% elif config.orm == config.orm.SQLMODEL %}
+    "sqlmodel>=0.0.19",
+    {% elif config.orm == config.orm.TORTOISE %}
+    "tortoise-orm>=0.21.0",
+    {% endif %}
+    {% endif %}
+    {% if config.database == config.database.POSTGRESQL %}
+    "psycopg[binary]>=3.1.0",
+    {% elif config.database == config.database.MYSQL %}
+    "asyncmy>=0.2.9",
+    {% elif config.database == config.database.SQLITE %}
+    "aiosqlite>=0.20.0",
+    {% endif %}
+    {% if config.migration_tool == config.migration_tool.ALEMBIC %}
+    "alembic>=1.13.0",
+    {% elif config.migration_tool == config.migration_tool.AERICH %}
+    "aerich>=0.7.0",
+    {% endif %}
+    {% if config.auth_method == config.auth_method.JWT %}
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    {% elif config.auth_method == config.auth_method.OAUTH2 %}
+    "authlib>=1.3.0",
+    "httpx>=0.27.0",
+    {% elif config.auth_method == config.auth_method.SESSION %}
+    "itsdangerous>=2.2.0",
+    {% endif %}
+    {% if config.include_admin %}
+    "sqladmin>=0.17.0",
+    {% endif %}
+    {% if config.cors_enabled %}
+    # CORS is built into FastAPI/Starlette
+    {% endif %}
+    {% if config.rate_limiting %}
+    "slowapi>=0.1.9",
+    {% endif %}
+    {% if config.message_broker == config.message_broker.RABBITMQ %}
+    "aio-pika>=9.4.0",
+    {% endif %}
+    {% if config.task_queue == config.task_queue.CELERY %}
+    "celery>=5.4.0",
+    {% if config.message_broker == config.message_broker.REDIS %}
+    "redis>=5.0.0",
+    {% endif %}
+    {% elif config.task_queue == config.task_queue.ARQ %}
+    "arq>=0.26.0",
+    {% elif config.task_queue == config.task_queue.TASKIQ %}
+    "taskiq>=0.11.0",
+    "taskiq-fastapi>=0.3.0",
+    {% endif %}
+    {% if config.cache_backend == config.cache_backend.REDIS %}
+    "redis>=5.0.0",
+    {% elif config.cache_backend == config.cache_backend.MEMCACHED %}
+    "aiomcache>=0.8.0",
+    {% endif %}
+    {% if config.logging_lib == config.logging_lib.LOGURU %}
+    "loguru>=0.7.0",
+    {% elif config.logging_lib == config.logging_lib.STRUCTLOG %}
+    "structlog>=24.2.0",
+    {% endif %}
+    {% if config.sentry_enabled %}
+    "sentry-sdk[fastapi]>=2.3.0",
+    {% endif %}
+    {% if config.aws_enabled %}
+    "boto3>=1.34.0",
+    "aioboto3>=13.0.0",
+    {% endif %}
+]
+
+[project.optional-dependencies]
+dev = [
+    {% if config.testing %}
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "httpx>=0.27.0",
+    {% endif %}
+    {% if config.linter == config.linter.RUFF %}
+    "ruff>=0.4.0",
+    {% elif config.linter == config.linter.BLACK_ISORT %}
+    "black>=24.4.0",
+    "isort>=5.13.0",
+    {% endif %}
+    {% if config.type_checker == config.type_checker.MYPY_STRICT or config.type_checker == config.type_checker.MYPY_STANDARD %}
+    "mypy>=1.10.0",
+    {% elif config.type_checker == config.type_checker.PYREFLY %}
+    "pyrefly>=0.9.0",
+    {% endif %}
+    {% if config.pre_commit %}
+    "pre-commit>=3.7.0",
+    {% endif %}
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+{% if config.linter == config.linter.RUFF %}
+[tool.ruff]
+target-version = "py{{ config.python_version.value.replace('.', '') }}"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+{% endif %}
+
+{% if config.testing %}
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+{% endif %}
+
+{% if config.type_checker == config.type_checker.MYPY_STRICT or config.type_checker == config.type_checker.MYPY_STANDARD %}
+[tool.mypy]
+python_version = "{{ config.python_version.value }}"
+{% if config.type_checker == config.type_checker.MYPY_STRICT %}
+strict = true
+{% else %}
+warn_return_any = true
+warn_unused_configs = true
+{% endif %}
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn.*", "passlib.*", "jose.*"]
+ignore_missing_imports = true
+{% endif %}
