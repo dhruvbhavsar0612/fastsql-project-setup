@@ -20,6 +20,7 @@ from .config import (
     LoggingLib,
     MessageBroker,
     MigrationTool,
+    NotificationService,
     PackageManager,
     ProjectConfig,
     ProjectStructure,
@@ -536,6 +537,43 @@ async def gather_structure_config() -> dict:
     }
 
 
+async def gather_notification_config() -> dict:
+    """Gather notification service configuration."""
+    print_section("Notification Services")
+
+    enable_notifications = await questionary.confirm(
+        "Configure notification services (Email/Push)?",
+        default=False,
+        style=custom_style,
+    ).ask_async()
+
+    notification_services = []
+    notification_worker = False
+
+    if enable_notifications:
+        notification_choices = await questionary.checkbox(
+            "Select notification services:",
+            choices=[
+                {"name": "SMTP Email (aiosmtplib)", "value": "smtp"},
+                {"name": "Firebase Cloud Messaging (FCM)", "value": "fcm"},
+            ],
+            style=custom_style,
+        ).ask_async()
+        notification_services = [NotificationService(s) for s in (notification_choices or [])]
+
+        if notification_services:
+            notification_worker = await questionary.confirm(
+                "Include background notification worker (runs in Docker)?",
+                default=True,
+                style=custom_style,
+            ).ask_async()
+
+    return {
+        "notification_services": notification_services,
+        "notification_worker": notification_worker,
+    }
+
+
 async def gather_all_config() -> ProjectConfig:
     """Run through all prompts and gather complete configuration."""
     print_header()
@@ -553,6 +591,7 @@ async def gather_all_config() -> ProjectConfig:
     config_dict.update(await gather_dev_tools())
     config_dict.update(await gather_deployment_config())
     config_dict.update(await gather_aws_config())
+    config_dict.update(await gather_notification_config())
     config_dict.update(await gather_structure_config())
 
     return ProjectConfig(**config_dict)
@@ -586,6 +625,12 @@ async def confirm_config(config: ProjectConfig) -> bool:
     if config.aws_enabled:
         services = ", ".join(s.value for s in config.aws_services)
         summary_lines.append(f"[cyan]AWS Services:[/cyan] {services}")
+
+    if config.notification_services:
+        notif_services = ", ".join(s.value.upper() for s in config.notification_services)
+        summary_lines.append(f"[cyan]Notifications:[/cyan] {notif_services}")
+        if config.notification_worker:
+            summary_lines.append("[cyan]Notification Worker:[/cyan] Yes (Docker)")
 
     for line in summary_lines:
         console.print(f"  {line}")

@@ -1,0 +1,326 @@
+"""Background notification worker.
+
+This worker processes notification jobs from a queue and sends them
+via the configured notification services (SMTP/FCM).
+
+Run with: python -m app.workers.notification_worker
+"""
+
+import asyncio
+import json
+import signal
+import sys
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+{% if config.logging_lib == config.logging_lib.LOGURU %}
+from loguru import logger
+{% elif config.logging_lib == config.logging_lib.STRUCTLOG %}
+import structlog
+logger = structlog.get_logger()
+{% else %}
+import logging
+logger = logging.getLogger(__name__)
+{% endif %}
+
+{% if config.cache_backend == config.cache_backend.REDIS %}
+import redis.asyncio as redis
+{% endif %}
+
+from ..config import settings
+{% if 'smtp' in config.notification_services|map(attribute='value')|list %}
+from ..services.email import email_service, EmailMessage
+{% endif %}
+{% if 'fcm' in config.notification_services|map(attribute='value')|list %}
+from ..services.fcm import fcm_service
+{% endif %}
+
+
+class NotificationType(str, Enum):
+    """Types of notifications."""
+    EMAIL = "email"
+    PUSH = "push"
+    BOTH = "both"
+
+
+class NotificationPriority(str, Enum):
+    """Notification priority levels."""
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+
+
+class NotificationWorker:
+    """Background worker for processing notifications."""
+
+    QUEUE_NAME = "notifications"
+    PROCESSING_QUEUE = "notifications:processing"
+    FAILED_QUEUE = "notifications:failed"
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5  # seconds
+
+    def __init__(self):
+        self.running = False
+{% if config.cache_backend == config.cache_backend.REDIS %}
+        self.redis: redis.Redis | None = None
+{% endif %}
+
+    async def start(self) -> None:
+        """Start the notification worker."""
+        logger.info("Starting notification worker...")
+        self.running = True
+
+{% if config.cache_backend == config.cache_backend.REDIS %}
+        # Connect to Redis
+        self.redis = redis.from_url(settings.redis_url)
+        logger.info(f"Connected to Redis at {settings.redis_url}")
+{% endif %}
+
+        # Set up signal handlers
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, self._handle_shutdown)
+
+        # Start processing
+        await self._process_queue()
+
+    async def stop(self) -> None:
+        """Stop the notification worker."""
+        logger.info("Stopping notification worker...")
+        self.running = False
+{% if config.cache_backend == config.cache_backend.REDIS %}
+        if self.redis:
+            await self.redis.close()
+{% endif %}
+
+    def _handle_shutdown(self, signum: int, frame: Any) -> None:
+        """Handle shutdown signals."""
+        logger.info(f"Received signal {signum}, shutting down...")
+        self.running = False
+
+{% if config.cache_backend == config.cache_backend.REDIS %}
+    async def _process_queue(self) -> None:
+        """Process notifications from the queue."""
+        while self.running:
+            try:
+                # Block and wait for notifications (timeout 1 second for graceful shutdown)
+                result = await self.redis.brpoplpush(
+                    self.QUEUE_NAME,
+                    self.PROCESSING_QUEUE,
+                    timeout=1,
+                )
+
+                if result:
+                    job_data = json.loads(result)
+                    await self._process_notification(job_data)
+                    # Remove from processing queue on success
+                    await self.redis.lrem(self.PROCESSING_QUEUE, 1, result)
+
+            except redis.RedisError as e:
+                logger.error(f"Redis error: {e}")
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.exception(f"Error processing notification: {e}")
+                await asyncio.sleep(1)
+
+    async def enqueue_notification(
+        self,
+        notification_type: NotificationType,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any] | None = None,
+        priority: NotificationPriority = NotificationPriority.NORMAL,
+        **kwargs: Any,
+    ) -> str:
+        """Add a notification to the queue."""
+        job_id = f"notif_{datetime.utcnow().timestamp()}_{id(recipients)}"
+        job = {
+            "id": job_id,
+            "type": notification_type.value,
+            "recipients": recipients,
+            "title": title,
+            "body": body,
+            "data": data or {},
+            "priority": priority.value,
+            "retries": 0,
+            "created_at": datetime.utcnow().isoformat(),
+            **kwargs,
+        }
+
+        # Add to queue (high priority at front, others at back)
+        if priority == NotificationPriority.HIGH:
+            await self.redis.rpush(self.QUEUE_NAME, json.dumps(job))
+        else:
+            await self.redis.lpush(self.QUEUE_NAME, json.dumps(job))
+
+        logger.info(f"Enqueued notification {job_id}")
+        return job_id
+{% else %}
+    async def _process_queue(self) -> None:
+        """Process notifications (in-memory queue for development)."""
+        logger.warning("Redis not configured - notifications will not be queued")
+        while self.running:
+            await asyncio.sleep(1)
+
+    async def enqueue_notification(
+        self,
+        notification_type: NotificationType,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any] | None = None,
+        priority: NotificationPriority = NotificationPriority.NORMAL,
+        **kwargs: Any,
+    ) -> str:
+        """Add a notification to the queue."""
+        logger.warning("Redis not configured - sending notification directly")
+        job = {
+            "type": notification_type.value,
+            "recipients": recipients,
+            "title": title,
+            "body": body,
+            "data": data or {},
+            **kwargs,
+        }
+        await self._process_notification(job)
+        return f"direct_{datetime.utcnow().timestamp()}"
+{% endif %}
+
+    async def _process_notification(self, job: dict[str, Any]) -> None:
+        """Process a single notification job."""
+        notification_type = job.get("type", "email")
+        recipients = job.get("recipients", [])
+        title = job.get("title", "")
+        body = job.get("body", "")
+        data = job.get("data", {})
+
+        logger.info(f"Processing {notification_type} notification to {len(recipients)} recipients")
+
+        try:
+            if notification_type in ("email", "both"):
+                await self._send_email(recipients, title, body, data, job)
+
+            if notification_type in ("push", "both"):
+                await self._send_push(recipients, title, body, data)
+
+            logger.info(f"Successfully sent {notification_type} notification")
+
+        except Exception as e:
+            logger.exception(f"Failed to send notification: {e}")
+            await self._handle_failure(job, str(e))
+
+{% if 'smtp' in config.notification_services|map(attribute='value')|list %}
+    async def _send_email(
+        self,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any],
+        job: dict[str, Any],
+    ) -> None:
+        """Send email notifications."""
+        html_body = data.get("html_body")
+        
+        message = EmailMessage(
+            to=recipients,
+            subject=title,
+            body_text=body,
+            body_html=html_body,
+        )
+        
+        result = await email_service.send_email(message)
+        
+        if not result.get("success"):
+            raise Exception(f"Email send failed: {result.get('error')}")
+{% else %}
+    async def _send_email(
+        self,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any],
+        job: dict[str, Any],
+    ) -> None:
+        """Send email notifications (not configured)."""
+        logger.warning("Email service not configured")
+{% endif %}
+
+{% if 'fcm' in config.notification_services|map(attribute='value')|list %}
+    async def _send_push(
+        self,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any],
+    ) -> None:
+        """Send push notifications via FCM."""
+        # Recipients are FCM device tokens
+        results = await fcm_service.send_multicast(
+            tokens=recipients,
+            title=title,
+            body=body,
+            data={k: str(v) for k, v in data.items()} if data else None,
+        )
+        
+        # Check for failures
+        failures = [r for r in results if not r.get("success")]
+        if failures:
+            logger.warning(f"Some push notifications failed: {len(failures)}/{len(results)}")
+{% else %}
+    async def _send_push(
+        self,
+        recipients: list[str],
+        title: str,
+        body: str,
+        data: dict[str, Any],
+    ) -> None:
+        """Send push notifications (not configured)."""
+        logger.warning("FCM service not configured")
+{% endif %}
+
+{% if config.cache_backend == config.cache_backend.REDIS %}
+    async def _handle_failure(self, job: dict[str, Any], error: str) -> None:
+        """Handle failed notification - retry or move to failed queue."""
+        retries = job.get("retries", 0)
+        
+        if retries < self.MAX_RETRIES:
+            # Retry with exponential backoff
+            job["retries"] = retries + 1
+            job["last_error"] = error
+            delay = self.RETRY_DELAY * (2 ** retries)
+            
+            logger.info(f"Retrying notification in {delay}s (attempt {retries + 1}/{self.MAX_RETRIES})")
+            
+            await asyncio.sleep(delay)
+            await self.redis.lpush(self.QUEUE_NAME, json.dumps(job))
+        else:
+            # Move to failed queue
+            job["failed_at"] = datetime.utcnow().isoformat()
+            job["final_error"] = error
+            await self.redis.lpush(self.FAILED_QUEUE, json.dumps(job))
+            logger.error(f"Notification permanently failed after {self.MAX_RETRIES} retries")
+{% else %}
+    async def _handle_failure(self, job: dict[str, Any], error: str) -> None:
+        """Handle failed notification."""
+        logger.error(f"Notification failed: {error}")
+{% endif %}
+
+
+# Worker instance
+notification_worker = NotificationWorker()
+
+
+async def main() -> None:
+    """Main entry point for the worker."""
+    worker = NotificationWorker()
+    try:
+        await worker.start()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        await worker.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

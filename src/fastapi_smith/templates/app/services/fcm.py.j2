@@ -1,0 +1,219 @@
+"""Firebase Cloud Messaging (FCM) service for push notifications."""
+
+import json
+from typing import Any
+
+import httpx
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+
+from ..config import settings
+
+
+class FCMMessage:
+    """FCM message builder."""
+
+    def __init__(
+        self,
+        token: str | None = None,
+        topic: str | None = None,
+        condition: str | None = None,
+    ):
+        self.token = token
+        self.topic = topic
+        self.condition = condition
+        self.notification: dict[str, Any] = {}
+        self.data: dict[str, str] = {}
+        self.android: dict[str, Any] = {}
+        self.apns: dict[str, Any] = {}
+        self.webpush: dict[str, Any] = {}
+
+    def set_notification(
+        self,
+        title: str,
+        body: str,
+        image: str | None = None,
+    ) -> "FCMMessage":
+        """Set notification payload (visible to user)."""
+        self.notification = {"title": title, "body": body}
+        if image:
+            self.notification["image"] = image
+        return self
+
+    def set_data(self, data: dict[str, str]) -> "FCMMessage":
+        """Set data payload (for app processing)."""
+        self.data = {k: str(v) for k, v in data.items()}
+        return self
+
+    def set_android_config(
+        self,
+        priority: str = "high",
+        ttl: str = "86400s",
+        collapse_key: str | None = None,
+    ) -> "FCMMessage":
+        """Set Android-specific configuration."""
+        self.android = {"priority": priority, "ttl": ttl}
+        if collapse_key:
+            self.android["collapse_key"] = collapse_key
+        return self
+
+    def set_apns_config(
+        self,
+        badge: int | None = None,
+        sound: str = "default",
+    ) -> "FCMMessage":
+        """Set iOS (APNs) specific configuration."""
+        self.apns = {
+            "payload": {
+                "aps": {
+                    "sound": sound,
+                }
+            }
+        }
+        if badge is not None:
+            self.apns["payload"]["aps"]["badge"] = badge
+        return self
+
+    def build(self) -> dict[str, Any]:
+        """Build the FCM message payload."""
+        message: dict[str, Any] = {}
+
+        # Set target (token, topic, or condition)
+        if self.token:
+            message["token"] = self.token
+        elif self.topic:
+            message["topic"] = self.topic
+        elif self.condition:
+            message["condition"] = self.condition
+        else:
+            raise ValueError("Must specify token, topic, or condition")
+
+        if self.notification:
+            message["notification"] = self.notification
+        if self.data:
+            message["data"] = self.data
+        if self.android:
+            message["android"] = self.android
+        if self.apns:
+            message["apns"] = self.apns
+        if self.webpush:
+            message["webpush"] = self.webpush
+
+        return {"message": message}
+
+
+class FCMService:
+    """Service for sending push notifications via Firebase Cloud Messaging."""
+
+    FCM_URL = "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+    SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
+
+    def __init__(self):
+        self.project_id = settings.fcm_project_id
+        self._credentials = None
+        self._load_credentials()
+
+    def _load_credentials(self) -> None:
+        """Load service account credentials."""
+        if settings.fcm_service_account_path:
+            self._credentials = service_account.Credentials.from_service_account_file(
+                settings.fcm_service_account_path,
+                scopes=self.SCOPES,
+            )
+        elif settings.fcm_service_account_json:
+            service_account_info = json.loads(settings.fcm_service_account_json)
+            self._credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
+                scopes=self.SCOPES,
+            )
+
+    def _get_access_token(self) -> str:
+        """Get a valid access token, refreshing if necessary."""
+        if not self._credentials:
+            raise ValueError("FCM credentials not configured")
+
+        if not self._credentials.valid:
+            self._credentials.refresh(Request())
+
+        return self._credentials.token
+
+    async def send_message(self, message: FCMMessage) -> dict[str, Any]:
+        """
+        Send a push notification.
+
+        Args:
+            message: FCMMessage object
+
+        Returns:
+            FCM response dict
+        """
+        url = self.FCM_URL.format(project_id=self.project_id)
+        headers = {
+            "Authorization": f"Bearer {self._get_access_token()}",
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                json=message.build(),
+            )
+
+            if response.status_code == 200:
+                return {
+                    "success": True,
+                    "message_id": response.json().get("name"),
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.text,
+                    "status_code": response.status_code,
+                }
+
+    async def send_to_token(
+        self,
+        token: str,
+        title: str,
+        body: str,
+        data: dict[str, str] | None = None,
+        image: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a notification to a specific device token."""
+        message = FCMMessage(token=token).set_notification(title, body, image)
+        if data:
+            message.set_data(data)
+        return await self.send_message(message)
+
+    async def send_to_topic(
+        self,
+        topic: str,
+        title: str,
+        body: str,
+        data: dict[str, str] | None = None,
+        image: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a notification to all devices subscribed to a topic."""
+        message = FCMMessage(topic=topic).set_notification(title, body, image)
+        if data:
+            message.set_data(data)
+        return await self.send_message(message)
+
+    async def send_multicast(
+        self,
+        tokens: list[str],
+        title: str,
+        body: str,
+        data: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Send notification to multiple device tokens."""
+        results = []
+        for token in tokens:
+            result = await self.send_to_token(token, title, body, data)
+            results.append({"token": token, **result})
+        return results
+
+
+# Default FCM service instance
+fcm_service = FCMService()

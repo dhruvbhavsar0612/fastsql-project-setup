@@ -14,6 +14,7 @@ from .config import (
     GitHubWorkflow,
     Linter,
     MigrationTool,
+    NotificationService,
     ProjectConfig,
     ProjectStructure,
     TypeChecker,
@@ -89,6 +90,10 @@ class ProjectGenerator:
                 progress.update(task, description="Setting up AWS integration...")
                 self._generate_aws_files()
 
+            if self.config.notification_services:
+                progress.update(task, description="Setting up notification services...")
+                self._generate_notification_files()
+
             progress.update(task, description="Done!")
 
         console.print(f"\n[green]Project created at:[/green] {self.output_dir}")
@@ -138,6 +143,9 @@ class ProjectGenerator:
             dirs.append(self.output_dir / "migrations" / "versions")
         elif self.config.migration_tool == MigrationTool.AERICH:
             dirs.append(self.output_dir / "migrations")
+
+        if self.config.notification_worker:
+            dirs.append(app_dir / "workers")
 
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
@@ -310,3 +318,33 @@ class ProjectGenerator:
 
         if AWSService.SES in self.config.aws_services:
             self._render_template("app/services/ses.py.j2", services_dir / "ses.py")
+
+    def _generate_notification_files(self) -> None:
+        """Generate notification service files."""
+        app_dir = self.output_dir / "app"
+
+        if self.config.project_structure == ProjectStructure.LAYERED:
+            services_dir = app_dir / "services"
+        elif self.config.project_structure == ProjectStructure.DOMAIN_DRIVEN:
+            services_dir = app_dir / "shared" / "services"
+            services_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            services_dir = app_dir
+
+        # Generate email service (SMTP)
+        if NotificationService.SMTP in self.config.notification_services:
+            self._render_template("app/services/email.py.j2", services_dir / "email.py")
+
+        # Generate FCM service
+        if NotificationService.FCM in self.config.notification_services:
+            self._render_template("app/services/fcm.py.j2", services_dir / "fcm.py")
+
+        # Generate notification worker
+        if self.config.notification_worker:
+            workers_dir = app_dir / "workers"
+            workers_dir.mkdir(parents=True, exist_ok=True)
+            self._write_file(workers_dir / "__init__.py", '"""Background workers."""\n')
+            self._render_template(
+                "app/workers/notification_worker.py.j2",
+                workers_dir / "notification_worker.py",
+            )

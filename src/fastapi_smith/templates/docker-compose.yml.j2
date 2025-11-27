@@ -116,6 +116,56 @@ services:
     restart: unless-stopped
   {% endif %}
 
+  {% if config.notification_worker %}
+  notification-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m app.workers.notification_worker
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      {% if config.database == config.database.POSTGRESQL %}
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/{{ config.project_name | replace('-', '_') }}
+      {% elif config.database == config.database.MYSQL %}
+      - DATABASE_URL=mysql+asyncmy://root:root@db:3306/{{ config.project_name | replace('-', '_') }}
+      {% endif %}
+      {% if config.cache_backend == config.cache_backend.REDIS %}
+      - REDIS_URL=redis://redis:6379/0
+      {% endif %}
+      {% if 'smtp' in config.notification_services|map(attribute='value')|list %}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER_EMAIL=${SMTP_SENDER_EMAIL:-noreply@example.com}
+      - SMTP_SENDER_NAME=${SMTP_SENDER_NAME:-{{ config.project_name }}}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+      {% endif %}
+      {% if 'fcm' in config.notification_services|map(attribute='value')|list %}
+      - FCM_PROJECT_ID=${FCM_PROJECT_ID:-}
+      - FCM_SERVICE_ACCOUNT_JSON=${FCM_SERVICE_ACCOUNT_JSON:-}
+      {% endif %}
+    depends_on:
+      {% if config.cache_backend == config.cache_backend.REDIS %}
+      redis:
+        condition: service_started
+      {% endif %}
+      {% if config.database == config.database.POSTGRESQL %}
+      db:
+        condition: service_healthy
+      {% elif config.database == config.database.MYSQL %}
+      db:
+        condition: service_healthy
+      {% endif %}
+    volumes:
+      - .:/app:ro
+      {% if 'fcm' in config.notification_services|map(attribute='value')|list %}
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+      {% endif %}
+    restart: unless-stopped
+  {% endif %}
+
 volumes:
   {% if config.database == config.database.POSTGRESQL %}
   postgres_data:

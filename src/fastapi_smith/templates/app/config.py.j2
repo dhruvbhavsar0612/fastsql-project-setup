@@ -81,6 +81,25 @@ class Settings(BaseSettings):
     {% endif %}
     {% endif %}
 
+    {% if 'smtp' in config.notification_services | map(attribute='value') | list %}
+    # SMTP Email
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_sender_email: str = "noreply@example.com"
+    smtp_sender_name: str = "{{ config.project_name }}"
+    smtp_use_tls: bool = True
+    frontend_url: str = "http://localhost:3000"
+    {% endif %}
+
+    {% if 'fcm' in config.notification_services | map(attribute='value') | list %}
+    # Firebase Cloud Messaging
+    fcm_project_id: str = ""
+    fcm_service_account_path: str | None = None
+    fcm_service_account_json: str | None = None
+    {% endif %}
+
     {% if config.cors_enabled %}
     # CORS
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]

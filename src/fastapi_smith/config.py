@@ -103,6 +103,12 @@ class AWSService(str, Enum):
     LAMBDA = "lambda"
 
 
+class NotificationService(str, Enum):
+    SMTP = "smtp"
+    FCM = "fcm"
+    NONE = "none"
+
+
 @dataclass
 class ProjectConfig:
     """Complete project configuration from user choices."""
@@ -155,6 +161,10 @@ class ProjectConfig:
     # AWS
     aws_enabled: bool = False
     aws_services: list[AWSService] = field(default_factory=list)
+
+    # Notifications
+    notification_services: list[NotificationService] = field(default_factory=list)
+    notification_worker: bool = False
 
     # Structure
     project_structure: ProjectStructure = ProjectStructure.LAYERED
