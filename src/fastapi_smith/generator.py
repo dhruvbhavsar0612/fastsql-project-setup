@@ -124,10 +124,12 @@ class ProjectGenerator:
             ]
 
         # Common directories
-        dirs.extend([
-            self.output_dir / "tests",
-            self.output_dir / ".github" / "workflows",
-        ])
+        dirs.extend(
+            [
+                self.output_dir / "tests",
+                self.output_dir / ".github" / "workflows",
+            ]
+        )
 
         if self.config.include_admin and self.config.database != Database.NONE:
             dirs.append(app_dir / "admin")
@@ -218,7 +220,7 @@ class ProjectGenerator:
             schemas_dir = app_dir / "models"
 
         self._render_template("app/models/base.py.j2", models_dir / "base.py")
-        
+
         if self.config.include_examples:
             self._render_template("app/models/user.py.j2", models_dir / "user.py")
             self._render_template("app/schemas/user.py.j2", schemas_dir / "user.py")
@@ -247,7 +249,7 @@ class ProjectGenerator:
             routes_dir = app_dir / "routes"
 
         self._render_template("app/core/security.py.j2", core_dir / "security.py")
-        
+
         if self.config.include_examples:
             self._render_template("app/routes/auth.py.j2", routes_dir / "auth.py")
             self._render_template("app/routes/users.py.j2", routes_dir / "users.py")
@@ -279,7 +281,7 @@ class ProjectGenerator:
         """Generate test files."""
         tests_dir = self.output_dir / "tests"
         self._render_template("tests/conftest.py.j2", tests_dir / "conftest.py")
-        
+
         if self.config.include_examples:
             self._render_template("tests/test_health.py.j2", tests_dir / "test_health.py")
             if self.config.auth_method != AuthMethod.NONE:
@@ -287,7 +289,9 @@ class ProjectGenerator:
 
     def _generate_precommit_config(self) -> None:
         """Generate pre-commit configuration."""
-        self._render_template("pre-commit-config.yaml.j2", self.output_dir / ".pre-commit-config.yaml")
+        self._render_template(
+            "pre-commit-config.yaml.j2", self.output_dir / ".pre-commit-config.yaml"
+        )
 
     def _generate_aws_files(self) -> None:
         """Generate AWS integration files."""

@@ -1,6 +1,5 @@
 """Tests for configuration models."""
 
-
 from fastapi_smith.config import (
     ORM,
     Database,
@@ -15,7 +14,7 @@ class TestProjectConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = ProjectConfig()
-        
+
         assert config.project_name == "my-fastapi-app"
         assert config.python_version == PythonVersion.PY312
         assert config.database == Database.POSTGRESQL
@@ -28,7 +27,7 @@ class TestProjectConfig:
             python_version=PythonVersion.PY311,
             database=Database.MYSQL,
         )
-        
+
         assert config.project_name == "my-app"
         assert config.python_version == PythonVersion.PY311
         assert config.database == Database.MYSQL
