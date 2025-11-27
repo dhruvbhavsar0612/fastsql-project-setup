@@ -51,7 +51,7 @@ jobs:
         run: uv sync --dev
 
       - name: Run mypy
-        run: uv run mypy src/setup_fastsql
+        run: uv run mypy src/fastapi_smith
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -75,7 +75,7 @@ jobs:
         run: uv sync --dev
 
       - name: Run tests
-        run: uv run pytest --cov=setup_fastsql --cov-report=xml -v
+        run: uv run pytest --cov=fastapi_smith --cov-report=xml -v
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
