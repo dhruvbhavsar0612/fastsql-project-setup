@@ -191,4 +191,76 @@ jobs:
           tags: {{ config.project_name }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  {% if config.docker_compose %}
+  docker-compose-test:
+    name: Docker Compose Integration Test
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          echo "DEBUG=true" >> .env
+          echo "APP_ENV=testing" >> .env
+
+      - name: Build and start services
+        run: |
+          docker compose build
+          docker compose up -d
+          
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to start..."
+          sleep 10
+          
+          # Wait for app to be ready (max 60 seconds)
+          for i in {1..12}; do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "App is healthy!"
+              break
+            fi
+            echo "Waiting for app... (attempt $i/12)"
+            sleep 5
+          done
+
+      - name: Test health endpoint
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+          if [ "$response" != "200" ]; then
+            echo "Health check failed with status: $response"
+            docker compose logs app
+            exit 1
+          fi
+          echo "Health check passed!"
+
+      - name: Test API root endpoint
+        run: |
+          response=$(curl -s http://localhost:8000/)
+          echo "Root response: $response"
+          if ! echo "$response" | grep -q "{{ config.project_name }}"; then
+            echo "Root endpoint check failed"
+            exit 1
+          fi
+          echo "Root endpoint check passed!"
+
+      - name: Test API docs availability
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs)
+          if [ "$response" != "200" ]; then
+            echo "API docs not available (status: $response) - this may be expected in non-debug mode"
+          else
+            echo "API docs available!"
+          fi
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+  {% endif %}
   {% endif %}
