@@ -4,7 +4,7 @@
 import sys
 from loguru import logger
 
-from ..config import settings
+from app.config import settings
 
 
 def setup_logging() -> None:
@@ -44,7 +44,7 @@ def setup_logging() -> None:
 import logging
 import structlog
 
-from ..config import settings
+from app.config import settings
 
 
 def setup_logging() -> None:
@@ -90,7 +90,7 @@ def setup_logging() -> None:
 {% else %}
 import logging
 
-from ..config import settings
+from app.config import settings
 
 
 def setup_logging() -> None:

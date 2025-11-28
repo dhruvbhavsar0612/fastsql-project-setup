@@ -6,20 +6,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 {% if config.project_structure == config.project_structure.LAYERED %}
-from ...database import get_db
-from ...models.user import User
-from ...schemas.user import UserResponse, UserUpdate
-from ...core.security import decode_token
+from app.database import get_db
+from app.models.user import User
+from app.schemas.user import UserResponse, UserUpdate
+from app.core.security import decode_token
 {% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
-from ....database import get_db
-from ..models.user import User
-from ..schemas.user import UserResponse, UserUpdate
-from ....shared.core.security import decode_token
+from app.database import get_db
+from app.domains.users.models.user import User
+from app.domains.users.schemas.user import UserResponse, UserUpdate
+from app.shared.core.security import decode_token
 {% else %}
-from ..database import get_db
-from ..models.user import User
-from ..schemas.user import UserResponse, UserUpdate
-from ..core.security import decode_token
+from app.database import get_db
+from app.models.user import User
+from app.schemas.user import UserResponse, UserUpdate
+from app.core.security import decode_token
 {% endif %}
 
 router = APIRouter()
@@ -88,11 +88,11 @@ async def update_user_me(
     
     if "password" in update_data:
         {% if config.project_structure == config.project_structure.LAYERED %}
-        from ...core.security import get_password_hash
+        from app.core.security import get_password_hash
         {% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
-        from ....shared.core.security import get_password_hash
+        from app.shared.core.security import get_password_hash
         {% else %}
-        from ..core.security import get_password_hash
+        from app.core.security import get_password_hash
         {% endif %}
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     

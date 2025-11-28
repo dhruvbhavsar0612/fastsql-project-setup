@@ -6,7 +6,7 @@ from typing import Any
 
 import redis.asyncio as redis
 
-from ..config import settings
+from app.config import settings
 
 _redis_client: redis.Redis | None = None
 
@@ -77,7 +77,7 @@ from typing import Any
 
 import aiomcache
 
-from ..config import settings
+from app.config import settings
 
 _memcached_client: aiomcache.Client | None = None
 

@@ -6,10 +6,10 @@ from pydantic import BaseModel
 {% if config.database != config.database.NONE %}
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..database import get_db
+from app.database import get_db
 {% endif %}
 {% if config.cache_backend == config.cache_backend.REDIS %}
-from ..core.cache import get_redis
+from app.core.cache import get_redis
 {% endif %}
 
 router = APIRouter()

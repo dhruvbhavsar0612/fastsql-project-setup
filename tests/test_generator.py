@@ -1,5 +1,6 @@
 """Tests for project generator."""
 
+import re
 import tempfile
 from pathlib import Path
 
@@ -133,3 +134,122 @@ class TestProjectGenerator:
             assert (project_dir / "app/api/v1/routes/__init__.py").exists()
             assert (project_dir / "app/services/__init__.py").exists()
             assert (project_dir / "app/repositories/__init__.py").exists()
+
+    def test_pyproject_has_required_dependencies(self):
+        """Test that generated pyproject.toml includes python-dotenv and pydantic[email]."""
+        config = ProjectConfig(
+            project_name="deps-test-project",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "deps-test-project"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            pyproject_content = (project_dir / "pyproject.toml").read_text()
+            assert "python-dotenv" in pyproject_content
+            assert "pydantic[email]" in pyproject_content
+
+    def test_generated_code_uses_absolute_imports_layered(self):
+        """Test that generated Python files use absolute imports for LAYERED structure."""
+        config = ProjectConfig(
+            project_name="imports-test-layered",
+            project_structure=ProjectStructure.LAYERED,
+            auth_method=AuthMethod.JWT,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "imports-test-layered"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            # Check all .py files in app/ for relative imports
+            app_dir = project_dir / "app"
+            relative_import_pattern = re.compile(r"from \.\.+")
+
+            for py_file in app_dir.rglob("*.py"):
+                content = py_file.read_text()
+                matches = relative_import_pattern.findall(content)
+                assert not matches, f"Found relative imports in {py_file}: {matches}"
+
+    def test_generated_code_uses_absolute_imports_domain_driven(self):
+        """Test that generated Python files use absolute imports for DOMAIN_DRIVEN structure."""
+        config = ProjectConfig(
+            project_name="imports-test-ddd",
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+            auth_method=AuthMethod.JWT,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "imports-test-ddd"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            # Check all .py files in app/ for relative imports
+            app_dir = project_dir / "app"
+            relative_import_pattern = re.compile(r"from \.\.+")
+
+            for py_file in app_dir.rglob("*.py"):
+                content = py_file.read_text()
+                matches = relative_import_pattern.findall(content)
+                assert not matches, f"Found relative imports in {py_file}: {matches}"
+
+    def test_generated_code_uses_absolute_imports_flat(self):
+        """Test that generated Python files use absolute imports for FLAT structure."""
+        config = ProjectConfig(
+            project_name="imports-test-flat",
+            project_structure=ProjectStructure.FLAT,
+            auth_method=AuthMethod.JWT,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "imports-test-flat"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            # Check all .py files in app/ for relative imports
+            app_dir = project_dir / "app"
+            relative_import_pattern = re.compile(r"from \.\.+")
+
+            for py_file in app_dir.rglob("*.py"):
+                content = py_file.read_text()
+                matches = relative_import_pattern.findall(content)
+                assert not matches, f"Found relative imports in {py_file}: {matches}"
+
+    def test_generated_imports_start_with_app(self):
+        """Test that internal imports in generated code start with 'from app.'."""
+        config = ProjectConfig(
+            project_name="app-imports-test",
+            project_structure=ProjectStructure.LAYERED,
+            auth_method=AuthMethod.JWT,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "app-imports-test"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            # Check auth.py has correct absolute imports
+            auth_file = project_dir / "app/api/v1/routes/auth.py"
+            if auth_file.exists():
+                content = auth_file.read_text()
+                # Should have imports from app.* not relative
+                assert "from app.database" in content
+                assert "from app.models" in content
+                assert "from app.schemas" in content
+                assert "from app.core" in content
+
+    def test_pyproject_has_hatch_wheel_config(self):
+        """Test that generated pyproject.toml has hatch wheel config for app package."""
+        config = ProjectConfig(
+            project_name="hatch-test-project",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / "hatch-test-project"
+            generator = ProjectGenerator(config, project_dir)
+            generator.generate()
+
+            pyproject_content = (project_dir / "pyproject.toml").read_text()
+            assert "[tool.hatch.build.targets.wheel]" in pyproject_content
+            assert 'packages = ["app"]' in pyproject_content

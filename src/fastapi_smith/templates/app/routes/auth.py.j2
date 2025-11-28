@@ -5,10 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 {% if config.project_structure == config.project_structure.LAYERED %}
-from ...database import get_db
-from ...models.user import User
-from ...schemas.user import LoginRequest, Token, UserCreate, UserResponse
-from ...core.security import (
+from app.database import get_db
+from app.models.user import User
+from app.schemas.user import LoginRequest, Token, UserCreate, UserResponse
+from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -16,10 +16,10 @@ from ...core.security import (
     verify_password,
 )
 {% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
-from ....database import get_db
-from ..models.user import User
-from ..schemas.user import LoginRequest, Token, UserCreate, UserResponse
-from ....shared.core.security import (
+from app.database import get_db
+from app.domains.users.models.user import User
+from app.domains.users.schemas.user import LoginRequest, Token, UserCreate, UserResponse
+from app.shared.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -27,10 +27,10 @@ from ....shared.core.security import (
     verify_password,
 )
 {% else %}
-from ..database import get_db
-from ..models.user import User
-from ..schemas.user import LoginRequest, Token, UserCreate, UserResponse
-from ..core.security import (
+from app.database import get_db
+from app.models.user import User
+from app.schemas.user import LoginRequest, Token, UserCreate, UserResponse
+from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
