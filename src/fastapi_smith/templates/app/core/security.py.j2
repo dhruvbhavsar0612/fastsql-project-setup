@@ -7,7 +7,7 @@ from typing import Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from ..config import settings
+from app.config import settings
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -85,7 +85,7 @@ def decode_token(token: str) -> dict[str, Any] | None:
 {% elif config.auth_method == config.auth_method.SESSION %}
 from itsdangerous import URLSafeTimedSerializer
 
-from ..config import settings
+from app.config import settings
 
 serializer = URLSafeTimedSerializer(settings.secret_key)
 
@@ -106,7 +106,7 @@ def decode_session_token(token: str, max_age: int = 86400) -> dict[str, Any] | N
 {% elif config.auth_method == config.auth_method.OAUTH2 %}
 from authlib.integrations.starlette_client import OAuth
 
-from ..config import settings
+from app.config import settings
 
 oauth = OAuth()
 

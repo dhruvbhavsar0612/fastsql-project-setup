@@ -2,8 +2,8 @@
 
 from sqladmin import Admin, ModelView
 
-from ..database import engine
-from ..models.user import User
+from app.database import engine
+from app.models.user import User
 
 
 class UserAdmin(ModelView, model=User):
