@@ -4,7 +4,7 @@ import subprocess
 from typing import Any
 
 import questionary
-from questionary import Style
+from questionary import Choice, Style
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -75,7 +75,7 @@ def print_section(title: str) -> None:
     console.print(f"\n[bold cyan]━━━ {title} ━━━[/bold cyan]\n")
 
 
-def make_choices(enum_class: Any, labels: dict[str, str] | None = None) -> list[dict]:
+def make_choices(enum_class: Any, labels: dict[str, str] | None = None) -> list[Choice]:
     """Create choices from an enum class with optional custom labels."""
     choices = []
     for item in enum_class:
@@ -84,7 +84,7 @@ def make_choices(enum_class: Any, labels: dict[str, str] | None = None) -> list[
             if labels
             else item.value.replace("_", " ").title()
         )
-        choices.append({"name": label, "value": item.value})
+        choices.append(Choice(title=label, value=item.value))
     return choices
 
 
