@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.1.4] - 2024-11-28
+
+### Fixed
+- Fix generated projects failing `uv sync` with "Unable to determine which files to ship inside the wheel"
+  - Add `[tool.hatch.build.targets.wheel]` section with `packages = ["app"]` to pyproject.toml template
+  - This tells hatchling where to find the application package
+
 ## [0.1.3] - 2024-11-28
 
 ### Fixed
@@ -106,7 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.0...v0.1.1
