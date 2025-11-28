@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.1.3] - 2024-11-28
+
+### Fixed
+- Fix remaining questionary default value errors for migration tool and AWS services prompts
+  - Convert inline dict choices to `Choice` objects in migration tool selection (Alembic/Aerich)
+  - Convert inline dict choices to `Choice` objects in AWS services checkbox
+  - This fixes "Invalid default value" error when selecting SQLModel + migration tool
+
 ## [0.1.2] - 2024-11-28
 
 ### Fixed
@@ -98,6 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/releases/tag/v0.1.0
