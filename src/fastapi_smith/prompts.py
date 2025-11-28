@@ -185,8 +185,8 @@ async def gather_database_config() -> dict[str, Any]:
             migration_tool = await questionary.select(
                 "Migration tool:",
                 choices=[
-                    {"name": "Alembic (Recommended)", "value": "alembic"},
-                    {"name": "None", "value": "none"},
+                    Choice(title="Alembic (Recommended)", value="alembic"),
+                    Choice(title="None", value="none"),
                 ],
                 default="alembic",
                 style=custom_style,
@@ -195,8 +195,8 @@ async def gather_database_config() -> dict[str, Any]:
             migration_tool = await questionary.select(
                 "Migration tool:",
                 choices=[
-                    {"name": "Aerich (Tortoise migrations)", "value": "aerich"},
-                    {"name": "None", "value": "none"},
+                    Choice(title="Aerich (Tortoise migrations)", value="aerich"),
+                    Choice(title="None", value="none"),
                 ],
                 default="aerich",
                 style=custom_style,
@@ -490,11 +490,11 @@ async def gather_aws_config() -> dict:
         aws_choices = await questionary.checkbox(
             "Select AWS services to integrate:",
             choices=[
-                {"name": "S3 (Object storage)", "value": "s3"},
-                {"name": "SES (Email service)", "value": "ses"},
-                {"name": "ECR (Container registry)", "value": "ecr"},
-                {"name": "ECS (Container orchestration)", "value": "ecs"},
-                {"name": "Lambda (Serverless functions)", "value": "lambda"},
+                Choice(title="S3 (Object storage)", value="s3"),
+                Choice(title="SES (Email service)", value="ses"),
+                Choice(title="ECR (Container registry)", value="ecr"),
+                Choice(title="ECS (Container orchestration)", value="ecs"),
+                Choice(title="Lambda (Serverless functions)", value="lambda"),
             ],
             style=custom_style,
         ).ask_async()
