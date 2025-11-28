@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.1.2] - 2024-11-28
+
+### Fixed
+- Fix questionary default value error by using `Choice` objects instead of plain dicts
+  - The `make_choices()` function now returns `list[Choice]` for proper default value handling
+  - This fixes the "Invalid default value" error when selecting Python version
+
 ## [0.1.1] - 2024-11-27
 
 ### Fixed
