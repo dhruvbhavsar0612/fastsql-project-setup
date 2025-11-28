@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.1.5] - 2024-11-28
+
+### Fixed
+- Add missing dependencies to generated `pyproject.toml`:
+  - `python-dotenv>=1.0.0` - required by pydantic-settings to load `.env` files
+  - `pydantic[email]>=2.7.0` - required for `EmailStr` validation in user schemas
+- Convert all relative imports to absolute imports in generated code
+  - Changed `from ...module` to `from app.module` pattern
+  - Fixes import errors when running generated projects
+
+### Added
+- New test cases for dependency and import validation:
+  - `test_pyproject_has_required_dependencies`
+  - `test_generated_code_uses_absolute_imports_layered`
+  - `test_generated_code_uses_absolute_imports_domain_driven`
+  - `test_generated_code_uses_absolute_imports_flat`
+  - `test_generated_imports_start_with_app`
+  - `test_pyproject_has_hatch_wheel_config`
+
 ## [0.1.4] - 2024-11-28
 
 ### Fixed
@@ -113,7 +132,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.1...v0.1.2
