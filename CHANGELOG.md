@@ -16,6 +16,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.2.0] - 2024-12-24
+
+### Added
+- **Comprehensive Documentation Site**: Added MkDocs Material documentation site with 22+ pages
+  - Getting Started guides (Installation, Quick Start, First Project tutorial)
+  - Configuration guides (Database, Authentication, Admin, Caching, etc.)
+  - In-depth guides (Project Structure, Testing, Docker, Migrations, CI/CD)
+  - Reference documentation (CLI, Configuration Options)
+  - Contributing guidelines and changelog
+  - Automatic deployment to GitHub Pages: https://dhruvbhavsar0612.github.io/fastsql-project-setup/
+- **Agent Rules and Protocols**: Added comprehensive development guidelines in `agents/` directory
+  - Git workflow rules (branch naming, commits, PRs)
+  - Documentation update protocols (always use `docs/` prefix)
+  - Release process checklist with pre-release tests
+  - Code review standards and comment conventions
+  - Testing requirements and best practices (80% coverage minimum)
+- **GitHub Actions**: Added automated documentation deployment workflow
+- **Documentation Badge**: Added docs badge and link to README
+
+### Changed
+- Updated project URLs to point to new documentation site
+- Enhanced README with documentation link
+
+### Fixed
+- Fixed GitHub Pages deployment to use default github.io domain (removed custom domain redirects)
+
 ## [0.1.5] - 2024-11-28
 
 ### Fixed
