@@ -39,8 +39,11 @@ jobs:
       - name: Build documentation
         run: mkdocs build --strict
 
-      - name: Remove CNAME file if exists
+      - name: Remove CNAME file to use default GitHub Pages domain
         run: rm -f site/CNAME
+
+      - name: Create .nojekyll file
+        run: touch site/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
