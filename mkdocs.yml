@@ -1,0 +1,100 @@
+site_name: FastAPI Smith
+site_description: Interactive CLI to scaffold production-ready FastAPI projects
+site_author: Dhruv Bhavsar
+site_url: https://dhruvbhavsar0612.github.io/fastsql-project-setup/
+
+repo_name: dhruvbhavsar0612/fastsql-project-setup
+repo_url: https://github.com/dhruvbhavsar0612/fastsql-project-setup
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Your First Project: getting-started/first-project.md
+  - Configuration:
+      - Overview: configuration/overview.md
+      - Database & ORM: configuration/database.md
+      - Authentication: configuration/authentication.md
+      - Admin Panel: configuration/admin.md
+      - Caching: configuration/caching.md
+      - Task Queues: configuration/tasks.md
+      - Logging: configuration/logging.md
+      - AWS Services: configuration/aws.md
+  - Guides:
+      - Project Structure: guides/project-structure.md
+      - Running Your App: guides/running.md
+      - Database Migrations: guides/migrations.md
+      - Testing: guides/testing.md
+      - Docker Deployment: guides/docker.md
+      - CI/CD: guides/cicd.md
+  - Reference:
+      - CLI Commands: reference/cli.md
+      - Configuration Options: reference/options.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dhruvbhavsar0612/fastsql-project-setup
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/fastapi-smith/

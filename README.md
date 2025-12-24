@@ -4,8 +4,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/dhruvbhavsar0612/fastsql-project-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/dhruvbhavsar0612/fastsql-project-setup/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://dhruvbhavsar0612.github.io/fastsql-project-setup/)
 
 Interactive CLI to scaffold production-ready FastAPI projects with database, authentication, admin panel, and more.
+
+📚 **[Full Documentation](https://dhruvbhavsar0612.github.io/fastsql-project-setup/)**
 
 ## Features
 
@@ -165,6 +168,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Links
 
+- [Documentation](https://dhruvbhavsar0612.github.io/fastsql-project-setup/)
 - [GitHub Repository](https://github.com/dhruvbhavsar0612/fastsql-project-setup)
+- [PyPI Package](https://pypi.org/project/fastapi-smith/)
 - [Issue Tracker](https://github.com/dhruvbhavsar0612/fastsql-project-setup/issues)
 - [Changelog](CHANGELOG.md)
