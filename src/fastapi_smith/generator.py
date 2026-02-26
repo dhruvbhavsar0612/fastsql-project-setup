@@ -152,12 +152,12 @@ class ProjectGenerator:
         template = self.env.get_template(template_name)
         content = template.render(config=self.config, **context)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(content)
+        output_path.write_text(content, encoding="utf-8")
 
     def _write_file(self, path: Path, content: str) -> None:
         """Write content to a file."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
 
     def _generate_config_files(self) -> None:
         """Generate project configuration files."""
