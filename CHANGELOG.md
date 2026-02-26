@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.2.1] - 2026-02-27
+
+### Fixed
+- Fix `'charmap' codec can't encode characters` error on Windows when generating projects
+  - `Path.write_text()` without explicit encoding defaults to the system locale (e.g. `cp1252`) which cannot encode box-drawing characters (`├│└─`) in the README template
+  - Added `encoding="utf-8"` to all `write_text()` calls in `generator.py`
+  - Added `encoding="utf-8"` to all `read_text()` calls in tests
+- Sync `__init__.py` version with `pyproject.toml` (was `0.1.5`, now `0.2.1`)
+
+### Added
+- **TestUTF8Encoding** test class (8 tests): validates box-drawing chars survive in all 3 project structures, verifies `encoding="utf-8"` is always passed, reproduces exact user config from the bug report
+- **TestOutputVariations** test class (47 tests): comprehensive coverage of all config branches — project structures, auth methods, databases, ORMs, cache backends, logging libs, package managers, linters, type checkers, GitHub workflows, migration tools, and all toggle flags
+
 ## [0.2.0] - 2024-12-24
 
 ### Added
@@ -158,7 +171,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.2...v0.1.3
