@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 {% endif %}
 {% if config.cache_backend == config.cache_backend.REDIS %}
+{% if config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+from app.shared.core.cache import get_redis
+{% elif config.project_structure == config.project_structure.FLAT %}
+from app.cache import get_redis
+{% else %}
 from app.core.cache import get_redis
+{% endif %}
 {% endif %}
 
 router = APIRouter()

@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .config import (
+    ORM,
     AuthMethod,
     AWSService,
     CacheBackend,
@@ -65,7 +66,11 @@ class ProjectGenerator:
                 progress.update(task, description="Setting up authentication...")
                 self._generate_auth_files()
 
-            if self.config.include_admin and self.config.database != Database.NONE:
+            if (
+                self.config.include_admin
+                and self.config.database != Database.NONE
+                and self.config.orm != ORM.TORTOISE
+            ):
                 progress.update(task, description="Setting up admin panel...")
                 self._generate_admin_files()
 
@@ -131,7 +136,11 @@ class ProjectGenerator:
             ]
         )
 
-        if self.config.include_admin and self.config.database != Database.NONE:
+        if (
+            self.config.include_admin
+            and self.config.database != Database.NONE
+            and self.config.orm != ORM.TORTOISE
+        ):
             dirs.append(app_dir / "admin")
 
         if self.config.migration_tool == MigrationTool.ALEMBIC:
@@ -217,7 +226,7 @@ class ProjectGenerator:
             schemas_dir = app_dir / "domains" / "users" / "schemas"
         else:
             models_dir = app_dir / "models"
-            schemas_dir = app_dir / "models"
+            schemas_dir = app_dir / "schemas"
 
         self._render_template("app/models/base.py.j2", models_dir / "base.py")
 

@@ -29,7 +29,11 @@ async_session_maker = async_sessionmaker(
 async def init_db() -> None:
     """Initialize database connection."""
     # Import models to register them with SQLAlchemy
+    {% if config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+    from .domains.users.models import base  # noqa: F401
+    {% else %}
     from .models import base  # noqa: F401
+    {% endif %}
     
     # For development: create tables (use migrations in production)
     # async with engine.begin() as conn:

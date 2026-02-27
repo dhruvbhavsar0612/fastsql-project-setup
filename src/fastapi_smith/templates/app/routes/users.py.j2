@@ -19,7 +19,7 @@ from app.shared.core.security import decode_token
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdate
-from app.core.security import decode_token
+from app.security import decode_token
 {% endif %}
 
 router = APIRouter()
@@ -92,7 +92,7 @@ async def update_user_me(
         {% elif config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
         from app.shared.core.security import get_password_hash
         {% else %}
-        from app.core.security import get_password_hash
+        from app.security import get_password_hash
         {% endif %}
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     

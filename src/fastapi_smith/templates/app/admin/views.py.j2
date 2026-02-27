@@ -1,9 +1,18 @@
 """Admin panel configuration using SQLAdmin."""
 
+{% if config.include_examples %}
 from sqladmin import Admin, ModelView
+{% else %}
+from sqladmin import Admin
+{% endif %}
 
 from app.database import engine
+{% if config.include_examples %}
+{% if config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+from app.domains.users.models.user import User
+{% else %}
 from app.models.user import User
+{% endif %}
 
 
 class UserAdmin(ModelView, model=User):
@@ -20,15 +29,16 @@ class UserAdmin(ModelView, model=User):
     column_searchable_list = [User.email, User.full_name]
     column_sortable_list = [User.id, User.email, User.created_at]
     column_default_sort = ("id", True)
-    
+
     can_create = True
     can_edit = True
     can_delete = True
     can_view_details = True
-    
+
     name = "User"
     name_plural = "Users"
     icon = "fa-solid fa-user"
+{% endif %}
 
 
 def create_admin(app) -> Admin:
@@ -39,8 +49,10 @@ def create_admin(app) -> Admin:
         title="{{ config.project_name }} Admin",
         base_url="/admin",
     )
-    
+
+{% if config.include_examples %}
     # Register model views
     admin.add_view(UserAdmin)
-    
+{% endif %}
+
     return admin
