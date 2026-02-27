@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [0.2.2] - 2026-02-27
+
+### Fixed
+- Fix broken cross-file imports in generated projects for Domain-Driven and Flat structures
+  - `admin/views.py`: guard `User` import behind `include_examples`, adapt import path for DDD structure
+  - `migrations/env.py`: guard `User` import behind `include_examples`, adapt `Base`/`User` paths for DDD
+  - `main.py`: guard auth/users router imports behind `auth_method != NONE`, adapt all core imports (`logging`, `rate_limit`, `health`) for DDD/Flat structures, guard admin import behind `orm != TORTOISE`
+  - `tests/conftest.py`: adapt `security` and `Base` import paths for DDD/Flat structures
+  - `core/health.py`: adapt `cache` import path for DDD/Flat structures
+  - `routes/auth.py`: fix security import to `app.security` for Flat structure
+  - `routes/users.py`: fix security import to `app.security` for Flat structure (both top-level and inline)
+  - `database.py`: adapt `from .models import base` to `from .domains.users.models import base` for DDD
+  - `generator.py`: fix Flat structure `schemas_dir` to use `app/schemas/` instead of `app/models/` (prevented schema/model file collision)
+  - `generator.py`: skip admin panel generation for Tortoise ORM (SQLAdmin requires SQLAlchemy engine)
+  - `generator.py`: add missing `ORM` enum import
+
+### Added
+- **TestImportConsistency** test class (44 tests): end-to-end import validation engine that scans all `.py` files in generated projects, extracts `from X import Y` statements, and verifies each import resolves to an actual file — covers all cross-products of project structure, auth method, include_examples, ORM, cache backend, and other config options
+
 ## [0.2.1] - 2026-02-27
 
 ### Fixed
@@ -171,7 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting with slowapi
 - CORS configuration
 
-[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/dhruvbhavsar0612/fastsql-project-setup/compare/v0.1.4...v0.1.5

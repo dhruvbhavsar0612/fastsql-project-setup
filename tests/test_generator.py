@@ -1269,3 +1269,551 @@ class TestOutputVariations:
             readme = (project_dir / "README.md").read_text(encoding="utf-8")
             for char in BOX_DRAWING_CHARS:
                 assert char in readme
+
+
+class TestImportConsistency:
+    """End-to-end tests that verify all generated Python files have valid imports.
+
+    For every ``from X import Y`` or ``import X`` in each generated ``.py``
+    file, we resolve the corresponding module path to a file that actually
+    exists inside the generated project.  This catches the category of bugs
+    where a template unconditionally imports a module that is only generated
+    under certain config flags (e.g. ``from app.models.user import User`` when
+    ``include_examples=False``, or ``from app.core.security`` when the project
+    structure is ``FLAT`` and security.py lives at ``app/security.py``).
+    """
+
+    # Regex to extract import paths from generated Python files.
+    # Matches:  from app.foo.bar import X  |  from .foo.bar import X
+    _IMPORT_RE = re.compile(
+        r"^\s*from\s+(\.[\w.]*|app[\w.]*)\s+import\s+",
+        re.MULTILINE,
+    )
+
+    @staticmethod
+    def _resolve_import(import_path: str, project_dir: Path, source_file: Path) -> Path | None:
+        """Resolve an import path to a file inside the generated project.
+
+        Returns the expected file Path, or None if the import is to a
+        third-party package (not under ``app``).
+        """
+        # Relative imports (from .foo import bar)
+        if import_path.startswith("."):
+            # Find the package root for the source file
+            relative = import_path.lstrip(".")
+            if not relative:
+                return None  # from . import X — same package, always valid
+            # Relative imports resolve from the file's package
+            package_dir = source_file.parent
+            # Count leading dots for parent traversal (beyond the first)
+            dots = len(import_path) - len(import_path.lstrip("."))
+            for _ in range(dots - 1):
+                package_dir = package_dir.parent
+            parts = relative.split(".")
+            candidate = package_dir / "/".join(parts)
+            # Could be a module (file.py) or a package (dir/__init__.py)
+            if candidate.with_suffix(".py").exists():
+                return candidate.with_suffix(".py")
+            if (candidate / "__init__.py").exists():
+                return candidate / "__init__.py"
+            return candidate.with_suffix(".py")  # return expected path for error msg
+
+        # Absolute imports (from app.foo import bar)
+        if import_path.startswith("app"):
+            parts = import_path.split(".")
+            candidate = project_dir / "/".join(parts)
+            if candidate.with_suffix(".py").exists():
+                return candidate.with_suffix(".py")
+            if (candidate / "__init__.py").exists():
+                return candidate / "__init__.py"
+            return candidate.with_suffix(".py")
+
+        # Third-party import — skip
+        return None
+
+    def _validate_imports(self, project_dir: Path) -> list[str]:
+        """Scan all .py files in project_dir and return list of broken imports."""
+        errors = []
+        for py_file in project_dir.rglob("*.py"):
+            content = py_file.read_text(encoding="utf-8")
+            for match in self._IMPORT_RE.finditer(content):
+                import_path = match.group(1).strip()
+                resolved = self._resolve_import(import_path, project_dir, py_file)
+                if resolved is not None and not resolved.exists():
+                    rel_source = py_file.relative_to(project_dir)
+                    errors.append(
+                        f"{rel_source}: `{match.group(0).strip()}` -> "
+                        f"expected {resolved.relative_to(project_dir)} but file not found"
+                    )
+        return errors
+
+    def _generate_and_validate(self, config: ProjectConfig, tmpdir: str) -> Path:
+        """Generate project and assert all imports are valid."""
+        project_dir = _generate(config, tmpdir)
+        errors = self._validate_imports(project_dir)
+        assert not errors, (
+            f"Broken imports in generated project ({config.project_name}):\n"
+            + "\n".join(f"  - {e}" for e in errors)
+        )
+        return project_dir
+
+    # ── User's exact config that triggered the original bug ──────────────
+
+    def test_user_reported_config(self):
+        """Reproduce the exact config from the user's bug report.
+
+        include_examples=False + include_admin=True caused:
+        ModuleNotFoundError: No module named 'app.models.user'
+        """
+        config = ProjectConfig(
+            project_name="user-reported-bug",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            auth_method=AuthMethod.JWT,
+            include_admin=True,
+            cors_enabled=True,
+            api_versioning=True,
+            rate_limiting=True,
+            message_broker=MessageBroker.RABBITMQ,
+            task_queue=TaskQueue.CELERY,
+            cache_backend=CacheBackend.REDIS,
+            logging_lib=LoggingLib.LOGURU,
+            sentry_enabled=True,
+            health_checks=True,
+            package_manager=PackageManager.UV,
+            linter=Linter.RUFF,
+            type_checker=TypeChecker.PYREFLY,
+            testing=True,
+            pre_commit=True,
+            docker=True,
+            docker_compose=True,
+            github_workflow=GitHubWorkflow.CI_DEPLOY,
+            project_structure=ProjectStructure.LAYERED,
+            include_examples=False,  # <-- this triggers the bug
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+
+            # Admin views.py should exist but NOT import User
+            admin_views = (project_dir / "app/admin/views.py").read_text(encoding="utf-8")
+            assert "from app.models.user import User" not in admin_views
+
+            # Migration env.py should NOT import User
+            env_py = (project_dir / "migrations/env.py").read_text(encoding="utf-8")
+            assert "from app.models.user import User" not in env_py
+
+    # ── Bug 1: admin + include_examples=False ────────────────────────────
+
+    def test_admin_without_examples_layered(self):
+        """Admin panel with include_examples=False should not reference User."""
+        config = ProjectConfig(
+            project_name="admin-no-examples-layered",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            include_admin=True,
+            include_examples=False,
+            project_structure=ProjectStructure.LAYERED,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    def test_admin_without_examples_ddd(self):
+        """Admin panel with include_examples=False in DDD structure."""
+        config = ProjectConfig(
+            project_name="admin-no-examples-ddd",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            include_admin=True,
+            include_examples=False,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    def test_admin_without_examples_flat(self):
+        """Admin panel with include_examples=False in FLAT structure."""
+        config = ProjectConfig(
+            project_name="admin-no-examples-flat",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            include_admin=True,
+            include_examples=False,
+            project_structure=ProjectStructure.FLAT,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    # ── Bug 2: Alembic migrations + include_examples=False ───────────────
+
+    def test_alembic_without_examples(self):
+        """Alembic env.py should not import User when include_examples=False."""
+        config = ProjectConfig(
+            project_name="alembic-no-examples",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            include_examples=False,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            env_py = (project_dir / "migrations/env.py").read_text(encoding="utf-8")
+            assert "app.models.user" not in env_py
+
+    def test_alembic_without_examples_ddd(self):
+        """Alembic env.py + DDD + include_examples=False."""
+        config = ProjectConfig(
+            project_name="alembic-no-examples-ddd",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            include_examples=False,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            env_py = (project_dir / "migrations/env.py").read_text(encoding="utf-8")
+            assert "app.domains.users.models.user" not in env_py
+
+    def test_alembic_with_examples_ddd(self):
+        """Alembic env.py + DDD + include_examples=True uses DDD import path."""
+        config = ProjectConfig(
+            project_name="alembic-examples-ddd",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            include_examples=True,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            env_py = (project_dir / "migrations/env.py").read_text(encoding="utf-8")
+            assert "from app.domains.users.models.user import User" in env_py
+            assert "from app.domains.users.models.base import Base" in env_py
+
+    # ── Bug 3: auth_method=NONE + include_examples=True + api_versioning ─
+
+    def test_auth_none_with_examples_and_versioning(self):
+        """No auth + examples + versioning should NOT import auth/users routers."""
+        config = ProjectConfig(
+            project_name="auth-none-versioning",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            auth_method=AuthMethod.NONE,
+            include_examples=True,
+            api_versioning=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            main_py = (project_dir / "app/main.py").read_text(encoding="utf-8")
+            assert "auth_router" not in main_py
+            assert "users_router" not in main_py
+
+    @pytest.mark.parametrize("structure", list(ProjectStructure))
+    def test_auth_none_all_structures(self, structure):
+        """No auth + any structure should not import non-existent route files."""
+        config = ProjectConfig(
+            project_name=f"auth-none-{structure.value}",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            auth_method=AuthMethod.NONE,
+            include_examples=True,
+            api_versioning=True,
+            project_structure=structure,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    # ── Bug 4+5: DDD structure import paths ──────────────────────────────
+
+    def test_ddd_full_featured(self):
+        """DDD structure with all features uses correct import paths."""
+        config = ProjectConfig(
+            project_name="ddd-full",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            auth_method=AuthMethod.JWT,
+            include_admin=True,
+            include_examples=True,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+            cache_backend=CacheBackend.REDIS,
+            health_checks=True,
+            rate_limiting=True,
+            logging_lib=LoggingLib.LOGURU,
+            testing=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+
+            # Verify DDD-specific file locations
+            assert (project_dir / "app/domains/users/models/user.py").exists()
+            assert (project_dir / "app/domains/users/schemas/user.py").exists()
+            assert (project_dir / "app/domains/users/routes/auth.py").exists()
+            assert (project_dir / "app/domains/users/routes/users.py").exists()
+            assert (project_dir / "app/shared/core/security.py").exists()
+            assert (project_dir / "app/shared/core/logging.py").exists()
+            assert (project_dir / "app/shared/core/cache.py").exists()
+            assert (project_dir / "app/shared/core/health.py").exists()
+
+            # Verify DDD import paths in main.py
+            main_py = (project_dir / "app/main.py").read_text(encoding="utf-8")
+            assert "from .shared.core.logging import setup_logging" in main_py
+            assert "from .shared.core.health import router as health_router" in main_py
+            assert "from .shared.core.rate_limit import limiter" in main_py
+            assert "from .domains.users.routes.auth import router as auth_router" in main_py
+
+    def test_ddd_conftest_security_import(self):
+        """DDD + JWT should use shared.core.security path in conftest."""
+        config = ProjectConfig(
+            project_name="ddd-conftest",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            auth_method=AuthMethod.JWT,
+            include_examples=True,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+            testing=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            conftest = (project_dir / "tests/conftest.py").read_text(encoding="utf-8")
+            assert "from app.shared.core.security import create_access_token" in conftest
+
+    def test_ddd_admin_user_import(self):
+        """DDD + admin + examples should use domains path for User."""
+        config = ProjectConfig(
+            project_name="ddd-admin",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            include_admin=True,
+            include_examples=True,
+            project_structure=ProjectStructure.DOMAIN_DRIVEN,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            admin = (project_dir / "app/admin/views.py").read_text(encoding="utf-8")
+            assert "from app.domains.users.models.user import User" in admin
+
+    # ── Bug 6: Tortoise ORM + admin ──────────────────────────────────────
+
+    def test_tortoise_orm_skips_admin(self):
+        """Tortoise ORM should NOT generate admin files (sqladmin requires SQLAlchemy)."""
+        config = ProjectConfig(
+            project_name="tortoise-admin",
+            database=Database.POSTGRESQL,
+            orm=ORM.TORTOISE,
+            migration_tool=MigrationTool.AERICH,
+            include_admin=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            assert not (project_dir / "app/admin/views.py").exists()
+            # main.py should not reference admin
+            main_py = (project_dir / "app/main.py").read_text(encoding="utf-8")
+            assert "create_admin" not in main_py
+
+    # ── Bug 7: health.py cache import for different structures ───────────
+
+    @pytest.mark.parametrize("structure", list(ProjectStructure))
+    def test_health_check_redis_all_structures(self, structure):
+        """Health check + Redis cache uses correct import path for all structures."""
+        config = ProjectConfig(
+            project_name=f"health-redis-{structure.value}",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            cache_backend=CacheBackend.REDIS,
+            health_checks=True,
+            project_structure=structure,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    # ── FLAT structure import paths ──────────────────────────────────────
+
+    def test_flat_full_featured(self):
+        """FLAT structure with all features uses correct import paths."""
+        config = ProjectConfig(
+            project_name="flat-full",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            auth_method=AuthMethod.JWT,
+            include_admin=True,
+            include_examples=True,
+            project_structure=ProjectStructure.FLAT,
+            cache_backend=CacheBackend.REDIS,
+            health_checks=True,
+            rate_limiting=True,
+            logging_lib=LoggingLib.LOGURU,
+            testing=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+
+            # FLAT-specific: core files live directly in app/
+            assert (project_dir / "app/logging.py").exists()
+            assert (project_dir / "app/health.py").exists()
+            assert (project_dir / "app/rate_limit.py").exists()
+            assert (project_dir / "app/security.py").exists()
+
+            # main.py should use flat import paths
+            main_py = (project_dir / "app/main.py").read_text(encoding="utf-8")
+            assert "from .logging import setup_logging" in main_py
+            assert "from .health import router as health_router" in main_py
+            assert "from .rate_limit import limiter" in main_py
+
+    def test_flat_conftest_security_import(self):
+        """FLAT + JWT should use app.security path in conftest."""
+        config = ProjectConfig(
+            project_name="flat-conftest",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            auth_method=AuthMethod.JWT,
+            include_examples=True,
+            project_structure=ProjectStructure.FLAT,
+            testing=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            conftest = (project_dir / "tests/conftest.py").read_text(encoding="utf-8")
+            assert "from app.security import create_access_token" in conftest
+
+    # ── Cross-product: all structures x include_examples x admin ─────────
+
+    @pytest.mark.parametrize("structure", list(ProjectStructure))
+    @pytest.mark.parametrize("include_examples", [True, False])
+    def test_structure_examples_cross_product(self, structure, include_examples):
+        """Every structure x examples combo has valid imports."""
+        config = ProjectConfig(
+            project_name=f"cross-{structure.value}-ex{include_examples}",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            auth_method=AuthMethod.JWT,
+            include_admin=True,
+            include_examples=include_examples,
+            project_structure=structure,
+            health_checks=True,
+            cache_backend=CacheBackend.REDIS,
+            testing=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    @pytest.mark.parametrize("structure", list(ProjectStructure))
+    @pytest.mark.parametrize("auth", list(AuthMethod))
+    def test_structure_auth_cross_product(self, structure, auth):
+        """Every structure x auth method combo has valid imports."""
+        config = ProjectConfig(
+            project_name=f"cross-{structure.value}-{auth.value}",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            auth_method=auth,
+            include_examples=True,
+            api_versioning=True,
+            project_structure=structure,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    # ── Database=NONE edge cases ─────────────────────────────────────────
+
+    def test_no_database_no_admin(self):
+        """No database should not generate database or admin files."""
+        config = ProjectConfig(
+            project_name="no-db",
+            database=Database.NONE,
+            orm=ORM.NONE,
+            migration_tool=MigrationTool.NONE,
+            include_admin=True,  # should be ignored since no DB
+            auth_method=AuthMethod.NONE,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            assert not (project_dir / "app/database.py").exists()
+            assert not (project_dir / "app/admin/views.py").exists()
+            assert not (project_dir / "migrations/env.py").exists()
+
+    def test_no_database_with_health_checks(self):
+        """Health checks without database should still work."""
+        config = ProjectConfig(
+            project_name="no-db-health",
+            database=Database.NONE,
+            orm=ORM.NONE,
+            migration_tool=MigrationTool.NONE,
+            auth_method=AuthMethod.NONE,
+            health_checks=True,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)
+
+    # ── Minimal config ───────────────────────────────────────────────────
+
+    def test_minimal_config(self):
+        """Absolute minimal config — nothing enabled."""
+        config = ProjectConfig(
+            project_name="minimal",
+            database=Database.NONE,
+            orm=ORM.NONE,
+            migration_tool=MigrationTool.NONE,
+            auth_method=AuthMethod.NONE,
+            include_admin=False,
+            cors_enabled=False,
+            api_versioning=False,
+            rate_limiting=False,
+            message_broker=MessageBroker.NONE,
+            task_queue=TaskQueue.NONE,
+            cache_backend=CacheBackend.NONE,
+            logging_lib=LoggingLib.STANDARD,
+            sentry_enabled=False,
+            health_checks=False,
+            testing=False,
+            pre_commit=False,
+            docker=False,
+            docker_compose=False,
+            github_workflow=GitHubWorkflow.NONE,
+            aws_enabled=False,
+            include_examples=False,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = self._generate_and_validate(config, tmpdir)
+            assert (project_dir / "app/main.py").exists()
+            assert (project_dir / "app/config.py").exists()
+
+    # ── Full-featured per structure ──────────────────────────────────────
+
+    @pytest.mark.parametrize("structure", list(ProjectStructure))
+    def test_full_featured_all_structures(self, structure):
+        """Full-featured config with every structure type has valid imports."""
+        config = ProjectConfig(
+            project_name=f"full-{structure.value}",
+            database=Database.POSTGRESQL,
+            orm=ORM.SQLALCHEMY,
+            migration_tool=MigrationTool.ALEMBIC,
+            auth_method=AuthMethod.JWT,
+            include_admin=True,
+            cors_enabled=True,
+            api_versioning=True,
+            rate_limiting=True,
+            message_broker=MessageBroker.RABBITMQ,
+            task_queue=TaskQueue.CELERY,
+            cache_backend=CacheBackend.REDIS,
+            logging_lib=LoggingLib.LOGURU,
+            sentry_enabled=True,
+            health_checks=True,
+            package_manager=PackageManager.UV,
+            linter=Linter.RUFF,
+            type_checker=TypeChecker.MYPY_STRICT,
+            testing=True,
+            pre_commit=True,
+            docker=True,
+            docker_compose=True,
+            github_workflow=GitHubWorkflow.CI_DEPLOY,
+            project_structure=structure,
+            include_examples=True,
+            aws_enabled=True,
+            aws_services=[AWSService.S3, AWSService.SES],
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._generate_and_validate(config, tmpdir)

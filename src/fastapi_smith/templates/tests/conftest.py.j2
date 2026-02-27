@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.database import get_db
+{% if config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+from app.domains.users.models.base import Base
+{% else %}
 from app.models.base import Base
+{% endif %}
 {% endif %}
 from httpx import ASGITransport, AsyncClient
 
@@ -101,8 +105,14 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture
 def auth_headers() -> dict[str, str]:
     """Create authorization headers with test token."""
+    {% if config.project_structure == config.project_structure.DOMAIN_DRIVEN %}
+    from app.shared.core.security import create_access_token
+    {% elif config.project_structure == config.project_structure.FLAT %}
+    from app.security import create_access_token
+    {% else %}
     from app.core.security import create_access_token
-    
+    {% endif %}
+
     token = create_access_token(data={"sub": "1"})
     return {"Authorization": f"Bearer {token}"}
 {% endif %}
